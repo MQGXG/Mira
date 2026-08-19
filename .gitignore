@@ -1,0 +1,36 @@
+node_modules/
+dist/
+dist-electron/
+release/
+release*/
+*.exe
+*.dmg
+*.AppImage
+__pycache__/
+*.pyc
+.venv/
+.env
+data/
+!.env.example
+portable-python/
+
+# 构建缓存
+*.tsbuildinfo
+
+# 运行时数据
+*.db
+dev.log
+logs/
+# 根锚定：只忽略仓库根目录的 memory/（会话记忆 JSON），
+# 避免误伤 packages/core/src/memory/ 等源码目录
+/memory/
+checkpoints/
+graphs/
+tasks/
+vector-memory/
+# Mira 运行时产物（快照/transcript 已迁移到 userData，此处为旧路径双保险）
+.mira/
+.transcripts/
+
+# 本地 AI 模型二进制（ONNX），通过 scripts/download-models.ps1 获取后随包分发
+resources/models/

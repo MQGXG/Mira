@@ -1,0 +1,75 @@
+{
+  "name": "@mira/core",
+  "version": "1.0.0",
+  "description": "Mira Core - 核心逻辑包",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "source": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./compose-mode": "./src/compose-mode.ts",
+    "./graph": "./src/graph/index.ts",
+    "./graph/types": "./src/graph/types.ts",
+    "./graph/templates/coding-task": "./src/graph/templates/coding-task.ts",
+    "./agent/agent": "./src/agent/agent.ts",
+    "./background/cron": "./src/background/cron.ts",
+    "./config/index": "./src/config/index.ts",
+    "./config/modes": "./src/config/modes.ts",
+    "./config/paths": "./src/config/paths.ts",
+    "./llm/provider-catalog": "./src/llm/provider-catalog.ts",
+    "./llm/schema/messages": "./src/llm/schema/messages.ts",
+    "./orchestrate/dream": "./src/orchestrate/dream.ts",
+    "./orchestrate/goal-judge": "./src/orchestrate/goal-judge.ts",
+    "./orchestrate/subagent": "./src/orchestrate/subagent.ts",
+    "./session/manager": "./src/session/manager.ts",
+    "./shared/hooks-setup": "./src/shared/hooks-setup.ts",
+    "./shared/tool": "./src/shared/tool.ts",
+    "./skill/skill-loader": "./src/skill/skill-loader.ts",
+    "./skill/skill-commands": "./src/skill/skill-commands.ts",
+    "./system/database": "./src/system/database.ts",
+    "./system/instruction": "./src/system/instruction.ts",
+    "./system/logger": "./src/system/logger.ts",
+    "./system/permission/store": "./src/system/permission/store.ts",
+    "./system/registry-init": "./src/system/registry-init.ts",
+    "./system/server-manager": "./src/system/server-manager.ts",
+    "./task/tracker": "./src/task/tracker.ts",
+    "./tools/interaction/question": "./src/tools/interaction/question.ts",
+    "./tools/orchestrate/agent-tools": "./src/tools/orchestrate/agent-tools.ts",
+    "./voice": "./src/voice/index.ts"
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "^3.5.2",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@xmldom/xmldom": "^0.8.13",
+    "docx": "^9.7.1",
+    "effect": "^3.21.4",
+    "jszip": "^3.10.1",
+    "parse5": "^7.0.0",
+    "pptxgenjs": "^4.0.1",
+    "sql.js": "^1.14.1",
+    "turndown": "^7.2.4",
+    "xlsx": "^0.18.5",
+    "zod": "^4.4.3"
+  },
+  "optionalDependencies": {
+    "playwright": "^1.60.0"
+  },
+  "devDependencies": {
+    "@types/sql.js": "^1.4.11",
+    "typescript": "^5.5.2",
+    "vitest": "^4.1.8"
+  }
+}

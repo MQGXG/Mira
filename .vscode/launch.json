@@ -1,0 +1,59 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "调试: 完整应用 (主进程+渲染进程)",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "name": "调试: 仅主进程",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "runtimeExecutable": "C:\\Program Files\\nodejs\\npm.cmd",
+      "runtimeArgs": ["run", "build"],
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"],
+      "outputCapture": "std"
+    },
+    {
+      "name": "调试: 仅 Python 后端",
+      "type": "python",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": [
+        "app.main:app",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "8230",
+        "--reload"
+      ],
+      "cwd": "${workspaceFolder}/agent-backend",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "说明",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "runtimeExecutable": "echo",
+      "runtimeArgs": [
+        "F5 启动完整应用 | 按需求选择不同调试配置"
+      ]
+    }
+  ],
+  "compounds": [
+    {
+      "name": "调试: 前后端分离",
+      "configurations": ["调试: 仅 Python 后端", "调试: 完整应用 (主进程+渲染进程)"]
+    }
+  ]
+}

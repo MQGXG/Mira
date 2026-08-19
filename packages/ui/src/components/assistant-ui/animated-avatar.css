@@ -1,0 +1,184 @@
+/* AnimatedAvatar — 原图 + CSS 动画 */
+
+.animated-avatar {
+  position: relative;
+  border-radius: 50%;
+  overflow: visible;
+}
+
+/* ── 图像层 ── */
+.avatar-image-wrapper {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  overflow: hidden;
+  position: relative;
+  z-index: 1;
+}
+
+.avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* ── 呼吸光晕 ── */
+.avatar-glow {
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  z-index: 0;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+/* ── Idle: 呼吸浮动 ── */
+.avatar-idle .avatar-image-wrapper {
+  animation: avatar-breathe 3s ease-in-out infinite;
+}
+
+.avatar-idle .avatar-glow {
+  animation: avatar-glow-pulse 3s ease-in-out infinite;
+}
+
+@keyframes avatar-breathe {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-1px) scale(1.01); }
+}
+
+@keyframes avatar-glow-pulse {
+  0%, 100% { opacity: 0; box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+  50% { opacity: 1; box-shadow: 0 0 12px 2px rgba(59, 130, 246, 0.15); }
+}
+
+/* ── Thinking: 思考动画 ── */
+.avatar-thinking .avatar-image-wrapper {
+  animation: avatar-think 2s ease-in-out infinite;
+}
+
+.avatar-thinking .avatar-glow {
+  opacity: 1;
+  box-shadow: 0 0 16px 3px rgba(139, 92, 246, 0.25);
+  animation: avatar-glow-think 1.5s ease-in-out infinite;
+}
+
+@keyframes avatar-think {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  25% { transform: translateY(-1px) rotate(-1deg); }
+  75% { transform: translateY(-1px) rotate(1deg); }
+}
+
+@keyframes avatar-glow-think {
+  0%, 100% { box-shadow: 0 0 12px 2px rgba(139, 92, 246, 0.2); }
+  50% { box-shadow: 0 0 20px 4px rgba(139, 92, 246, 0.35); }
+}
+
+/* 思考点 */
+.avatar-thinking-dots {
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 3px;
+  z-index: 2;
+}
+
+.avatar-thinking-dots .dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--info, #8b5cf6);
+  animation: dot-bounce 1.4s ease-in-out infinite;
+}
+
+.dot-2 { animation-delay: 0.2s; }
+.dot-3 { animation-delay: 0.4s; }
+
+@keyframes dot-bounce {
+  0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+  40% { transform: scale(1); opacity: 1; }
+}
+
+/* ── Speaking: 说话动画 ── */
+.avatar-speaking .avatar-image-wrapper {
+  animation: avatar-speak 0.3s ease-in-out infinite alternate;
+}
+
+.avatar-speaking .avatar-glow {
+  opacity: 1;
+  box-shadow: 0 0 16px 3px rgba(16, 185, 129, 0.25);
+  animation: avatar-glow-speak 0.6s ease-in-out infinite;
+}
+
+@keyframes avatar-speak {
+  0% { transform: scale(1); }
+  100% { transform: scale(1.015); }
+}
+
+@keyframes avatar-glow-speak {
+  0%, 100% { box-shadow: 0 0 12px 2px rgba(16, 185, 129, 0.2); }
+  50% { box-shadow: 0 0 20px 4px rgba(16, 185, 129, 0.35); }
+}
+
+/* 说话声波 */
+.avatar-speaking-waves {
+  position: absolute;
+  right: -6px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  z-index: 2;
+}
+
+.avatar-speaking-waves .wave {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--success, #10b981);
+  animation: wave-pulse 0.8s ease-in-out infinite;
+}
+
+.wave-2 { animation-delay: 0.15s; }
+.wave-3 { animation-delay: 0.3s; }
+
+@keyframes wave-pulse {
+  0%, 100% { transform: scaleY(0.5); opacity: 0.3; }
+  50% { transform: scaleY(1.5); opacity: 1; }
+}
+
+/* ── Error: 错误动画 ── */
+.avatar-error .avatar-image-wrapper {
+  animation: avatar-error-shake 0.5s ease-in-out;
+}
+
+.avatar-error .avatar-glow {
+  opacity: 1;
+  box-shadow: 0 0 12px 2px rgba(239, 68, 68, 0.3);
+}
+
+@keyframes avatar-error-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-3px); }
+  40% { transform: translateX(3px); }
+  60% { transform: translateX(-2px); }
+  80% { transform: translateX(2px); }
+}
+
+/* 错误指示器 */
+.avatar-error-indicator {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  z-index: 2;
+  animation: error-pop 0.3s ease-out;
+}
+
+@keyframes error-pop {
+  0% { transform: scale(0); }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}

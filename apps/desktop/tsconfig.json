@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "types": ["node"],
+    "jsx": "react-jsx",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "sourceMap": true,
+    "paths": {
+      "@mira/core": ["../../packages/core/src"],
+      "@mira/core/*": ["../../packages/core/src/*"],
+      "@mira/ui": ["../../packages/ui/src"],
+      "@mira/ui/*": ["../../packages/ui/src/*"],
+      "@mira/electron": ["../../packages/electron/src"],
+      "@mira/electron/*": ["../../packages/electron/src/*"]
+    }
+  },
+  "include": ["src/**/*", "../../packages/ui/src/types/**/*.d.ts"],
+  "exclude": ["node_modules", "dist"]
+}

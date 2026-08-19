@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Live2D Test</title>
+  <script src="/Core/live2dcubismcore.min.js"></script>
+</head>
+<body>
+  <h1>Live2D Core Test</h1>
+  <div id="status"></div>
+  <script>
+    const status = document.getElementById('status');
+    if (window.Live2DCubismCore) {
+      status.textContent = '✅ Cubism Core loaded! Version: ' + (window.Live2DCubismCore.version || 'unknown');
+      status.style.color = 'green';
+    } else {
+      status.textContent = '❌ Cubism Core NOT loaded';
+      status.style.color = 'red';
+    }
+  </script>
+</body>
+</html>

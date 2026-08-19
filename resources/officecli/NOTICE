@@ -1,0 +1,8 @@
+OfficeCLI
+Copyright © iOfficeAI (https://github.com/iOfficeAI/OfficeCLI)
+Licensed under the Apache License, Version 2.0.
+See the LICENSE file in this directory for the full license text.
+
+This binary is redistributed unmodified by the Mira project to provide
+deterministic Office document read/edit/validate/render capabilities.
+Source: https://github.com/iOfficeAI/OfficeCLI

@@ -1,0 +1,64 @@
+appId: com.mira.app
+productName: Mira
+copyright: Copyright © 2024
+
+directories:
+  output: release
+  buildResources: resources
+
+files:
+  - dist-electron/**/*
+  - dist/**/*
+
+# tree-sitter 等 WASM 文件 unpack 到 app.asar.unpacked，供 sidecar（纯 Node 子进程）读取
+asarUnpack:
+  - "**/*.wasm"
+
+# 本地 AI 模型（Transformers.js ONNX）随应用分发，缺失时运行时自动在线下载
+extraResources:
+  - from: resources/models
+    to: models
+    filter:
+      - "**/*"
+  # 应用图标（托盘/窗口运行时使用）
+  - from: resources/icon.png
+    to: icon.png
+  # OfficeCLI 二进制（officecli_* 工具，win32/macOS/linux 各平台捆绑对应二进制）
+  - from: resources/officecli
+    to: officecli
+    filter:
+      - "**/*"
+  # 动态 Office 库兜底（docx/xlsx/pptxgenjs，run_code node 脚本免下载使用）
+  - from: resources/office-libs
+    to: office-libs
+    filter:
+      - "**/*"
+
+win:
+  icon: resources/icon.ico
+  target:
+    - target: nsis
+      arch: [x64]
+  artifactName: "${productName}-Setup-${version}.${ext}"
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Mira
+  uninstallDisplayName: Mira
+
+mac:
+  icon: resources/icon.icns
+  target:
+    - target: dmg
+      arch: [x64, arm64]
+  artifactName: "${productName}-${version}.${ext}"
+
+linux:
+  icon: resources/icon.png
+  target:
+    - target: AppImage
+      arch: [x64]
+  artifactName: "${productName}-${version}.${ext}"

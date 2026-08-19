@@ -1,0 +1,30 @@
+{
+  "name": "@mira/electron",
+  "version": "1.0.0",
+  "description": "Mira Electron - Electron 主进程包",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@mira/core": "workspace:*"
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "typescript": "^5.5.2",
+    "vitest": "^4.1.8"
+  },
+  "peerDependencies": {
+    "electron": ">=30.0.0"
+  }
+}

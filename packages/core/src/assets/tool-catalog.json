@@ -1,0 +1,202 @@
+{
+  "version": 1,
+  "updatedAt": "2026-08-16",
+  "tools": [
+    {
+      "name": "bash",
+      "description": "Execute shell commands (npm, git, system commands). Use for building, testing, installing packages. Use when: installing npm packages, running tests, checking git status, building projects, running scripts. Do NOT use for: reading file content (use read_file), searching (use grep), or simple time questions (use get_current_time). Prefer targeted commands over long chained ones."
+    },
+    {
+      "name": "change_directory",
+      "description": "Switch the working directory for the current session (like cd in a terminal). Subsequent relative file paths will be resolved relative to this directory. Use '~' or empty to reset to the project root. Use when the session needs to work in a subdirectory of a monorepo or multi-folder project."
+    },
+    {
+      "name": "code_search",
+      "description": "Search for code documentation, API references, and programming examples. Use when the user asks about how to use a library, framework, or API."
+    },
+    {
+      "name": "create_docx",
+      "description": "Create a Word document (.docx) with formatted content. Supports headings, paragraphs, tables, and lists. Use when: user says '整理成文档'/'生成报告'/'做成Word', exporting content to document format, creating formatted reports."
+    },
+    {
+      "name": "create_mockup",
+      "description": "Create a UI wireframe / mockup (SVG). Draws layout elements: navbar导航栏, sidebar侧边栏, card卡片, button按钮, input输入框, text文本, image图片占位, chart图表占位, table表格. Use when: user wants to design UI layout before coding, align on page structure, create app prototypes, wireframes."
+    },
+    {
+      "name": "create_pptx",
+      "description": "Create a PowerPoint presentation (.pptx) with multiple slides, titles, bullet points, and tables. Use when: user says '做成PPT'/'生成演示文稿'/'做幻灯片'/'做报告', creating presentations, slide decks, pitch decks."
+    },
+    {
+      "name": "create_svg",
+      "description": "Create an abstract SVG illustration / cover art. Generates gradient backgrounds, geometric shapes, decorative patterns, concept covers. Use when: user wants visual covers, abstract images, decorative graphics, concept illustrations, brand visuals."
+    },
+    {
+      "name": "create_webpage",
+      "description": "Create an interactive HTML page (.html) with embedded CSS and JavaScript. Supports: clickable tabs, sliders, forms, charts (canvas), interactive components, single-page apps. Use when: user wants interactive content, data dashboards, clickable prototypes, form widgets, mini web apps."
+    },
+    {
+      "name": "create_xlsx",
+      "description": "Create an Excel spreadsheet (.xlsx) with multiple sheets, headers, and tabular data. Use when: user says '做成Excel'/'生成表格'/'导出为xlsx'/'制作电子表格', exporting data to spreadsheet format, creating data reports."
+    },
+    {
+      "name": "cronjob",
+      "description": "创建、列出、删除定时任务。支持标准 cron 表达式(分 时 日 月 周)"
+    },
+    {
+      "name": "data_analysis",
+      "description": "分析数据（CSV）、生成统计图表。支持 summary/correlation/trend/distribution 分析类型，bar/line/pie 图表类型"
+    },
+    {
+      "name": "delegate_task",
+      "description": "将子任务委派给独立运行的子 Agent。子 Agent 拥有独立的会话、权限子集和步数预算，执行完成后返回结果"
+    },
+    {
+      "name": "edit_file",
+      "description": "Replace specific text in an existing file. Uses fuzzy matching with 9 strategies. ALWAYS read the file first before editing. Use when: fixing bugs in code, updating specific lines, changing function implementations, modifying config values."
+    },
+    {
+      "name": "get_current_time",
+      "description": "Get the current date and time, including timezone. Use this when the user asks what time it is, today's date, or any time-related question. Returns instantly without running any shell command."
+    },
+    {
+      "name": "git_commit",
+      "description": "Create a git commit with all staged changes (like 'git commit'). Use when: saving changes to git, creating a checkpoint, after staging files."
+    },
+    {
+      "name": "git_diff",
+      "description": "Show git diff for unstaged changes (like 'git diff'). See what changed. Use when: reviewing code changes, before committing, understanding modifications."
+    },
+    {
+      "name": "git_log",
+      "description": "Show recent git commit history (like 'git log --oneline'). Use when: viewing commit history, understanding project changes, finding specific commits."
+    },
+    {
+      "name": "git_status",
+      "description": "Show git working tree status (like 'git status --short'). See which files are modified. Use when: checking what files changed, before committing, reviewing working tree state."
+    },
+    {
+      "name": "glob",
+      "description": "Find files by name pattern. Supports wildcards like **/*.ts, src/**/*.js. Use when: finding TypeScript/JavaScript files, locating config files, finding files by extension, exploring project structure. Do NOT use for: content search (use grep), reading file contents (use read_file). Prefer this tool over running 'find'/'ls' via bash."
+    },
+    {
+      "name": "grep",
+      "description": "Search for text patterns in files using regex. Uses ripgrep for fast search. Use when: finding where a function is used, searching for TODO/FIXME comments, locating specific code patterns, finding variable definitions. Do NOT use for: searching the web (use web_search), searching conversation memory (use memory_search). Prefer this tool over running 'grep'/'rg' via bash."
+    },
+    {
+      "name": "image_generate",
+      "description": "根据文本描述生成图片。使用 DALL-E 或兼容 API"
+    },
+    {
+      "name": "invalid",
+      "description": "Do not use."
+    },
+    {
+      "name": "list_files",
+      "description": "List directory contents. Shows files and subdirectories with sizes."
+    },
+    {
+      "name": "list_subagents",
+      "description": "列出所有活跃或指定状态的子 Agent。可用于检查后台任务的进度。"
+    },
+    {
+      "name": "lsp_definition",
+      "description": "跳转到符号定义处。输入文件路径和行列位置，返回定义所在的文件、行、列。"
+    },
+    {
+      "name": "lsp_hover",
+      "description": "获取符号的类型信息和文档。输入文件路径和行列位置，返回类型定义和文档字符串。"
+    },
+    {
+      "name": "lsp_implementations",
+      "description": "查找接口/抽象方法的实现位置。输入文件路径和行列位置，返回所有实现所在的文件:行:列。"
+    },
+    {
+      "name": "lsp_references",
+      "description": "查找符号的所有引用位置。输入文件路径和行列位置，返回所有引用的文件:行:列。"
+    },
+    {
+      "name": "lsp_rename",
+      "description": "跨文件重命名符号（函数/类/变量/接口等），自动更新所有引用位置。输入文件路径和符号位置及新名称，返回修改的文件和替换数。会先校验符号可重命名。"
+    },
+    {
+      "name": "lsp_symbols",
+      "description": "获取文件的符号大纲（类、函数、方法、变量等层级结构）。输入文件路径，返回该文件所有符号及其类型。"
+    },
+    {
+      "name": "memory_activate",
+      "description": "Activate related memories from the knowledge graph using neural propagation. Use this when you need to find connected concepts, trace relationships between code components, or discover insights through graph traversal. Unlike simple search, this explores associations and can trigger spontaneous recall of weakly-connected memories."
+    },
+    {
+      "name": "memory_graph_add_edge",
+      "description": "Add a relationship between two concepts in the knowledge graph. Use this to explicitly link related ideas, code components, or decisions."
+    },
+    {
+      "name": "memory_graph_add_node",
+      "description": "Add a concept or memory to the knowledge graph. Use this to explicitly store important information, decisions, or relationships discovered during work."
+    },
+    {
+      "name": "memory_graph_decay",
+      "description": "Perform maintenance on the knowledge graph: decay weak memories and consolidate strong ones. Run periodically to keep the graph healthy."
+    },
+    {
+      "name": "memory_graph_query",
+      "description": "Query the knowledge graph for information about a concept, its relationships, or community structure."
+    },
+    {
+      "name": "memory_recall",
+      "description": "Recall specific information from past conversations and project memory by topic. Use when you need to remember decisions, patterns, or knowledge from earlier in the session or previous sessions."
+    },
+    {
+      "name": "memory_search",
+      "description": "Search indexed project files and conversation memory using full-text search. Use when you need to find relevant context, code, or past decisions from the current project or previous sessions. Faster and more comprehensive than grep for natural language queries."
+    },
+    {
+      "name": "plan_task",
+      "description": "将复杂任务分解为多步计划，按依赖顺序逐步执行。支持创建计划、添加步骤、执行、查看状态"
+    },
+    {
+      "name": "question",
+      "description": "Ask the user a question to get their input or make a decision. Use when you need clarification, want to confirm an approach, or need the user to choose between options."
+    },
+    {
+      "name": "read_file",
+      "description": "Read file content or list directory contents. Use this BEFORE modifying any file to understand its current state. Supports text files (with line offset/limit pagination, UTF-8 byte-accurate truncation, encoding detection), images (returned as viewable content), and directory listing. Use when: reading file content, checking code before editing, examining config files, listing directory contents, viewing images."
+    },
+    {
+      "name": "run_code",
+      "description": "Execute code in a temporary sandbox (Python or Node.js). Returns output or errors. Use when: calculating something, testing logic, processing data, running algorithms. Choose language based on task: python for data analysis, node for JS/TS logic."
+    },
+    {
+      "name": "search_history",
+      "description": "Search past conversation history across sessions. Use when you need to recall what was discussed earlier, revisit past decisions, or find information from previous conversations that might not be in current context."
+    },
+    {
+      "name": "team_tool",
+      "description": "团队 Agent 间通信：发送消息、读取收件箱、管理协议状态。用于多 Agent 协作"
+    },
+    {
+      "name": "wait_agents",
+      "description": "等待一个或多个子 Agent 完成并获取结果。支持等待全部或任意一个先完成。"
+    },
+    {
+      "name": "web_browse",
+      "description": "Open a web page and extract content. Supports navigation, snapshot, click, type, scroll, back, extract, and capture (full page capture with screenshot + Markdown + images + documents). Requires Playwright (npx playwright install chromium)."
+    },
+    {
+      "name": "web_fetch",
+      "description": "Fetch and read content from a specific URL. Returns markdown, text, or HTML. Supports any public HTTP/HTTPS URL. Use when: reading documentation pages, fetching article content, accessing GitHub pages or READMEs, getting API documentation."
+    },
+    {
+      "name": "workflow_run",
+      "description": "Execute a multi-step workflow with sequential/parallel steps. Supports agent steps (LLM prompts), bash steps (shell commands), parallel execution, and pipeline orchestration. Use for complex multi-step tasks that require structured execution."
+    },
+    {
+      "name": "worktree",
+      "description": "为任务创建隔离的工作目录（支持 Git worktree），在隔离目录中执行命令，任务完成后清理"
+    },
+    {
+      "name": "write_file",
+      "description": "Create a new file or completely replace file content. Creates parent directories automatically. Safeguards: stale-content detection (refuses to overwrite if file changed externally since read), process-level write lock, BOM preservation. Use for new files or full rewrites. Do NOT use for: small edits (use edit_file), or creating documentation files unless explicitly requested. ALWAYS read the file first if it already exists."
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+dist/
+dist-electron/
+node_modules/
+release/
+data/
+*.js
+*.cjs
+*.mjs

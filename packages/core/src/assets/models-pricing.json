@@ -1,0 +1,22 @@
+{
+  "gpt-4o": { "input": 0.0025, "output": 0.01, "cacheRead": 0.00125 },
+  "gpt-4o-mini": { "input": 0.00015, "output": 0.0006, "cacheRead": 0.000075 },
+  "gpt-4.1": { "input": 0.002, "output": 0.008, "cacheRead": 0.0005 },
+  "gpt-4.1-mini": { "input": 0.0004, "output": 0.0016, "cacheRead": 0.0001 },
+  "gpt-4-turbo": { "input": 0.01, "output": 0.03, "cacheRead": 0.005 },
+  "gpt-4": { "input": 0.03, "output": 0.06 },
+  "gpt-3.5-turbo": { "input": 0.0005, "output": 0.0015 },
+  "o1": { "input": 0.015, "output": 0.06 },
+  "o1-mini": { "input": 0.0011, "output": 0.0044 },
+  "o3-mini": { "input": 0.0011, "output": 0.0044 },
+  "o4-mini": { "input": 0.0011, "output": 0.0044 },
+  "claude-sonnet-4-20250514": { "input": 0.003, "output": 0.015, "cacheRead": 0.0027, "cacheWrite": 0.00375 },
+  "claude-opus-4-20250514": { "input": 0.015, "output": 0.075, "cacheRead": 0.0135, "cacheWrite": 0.01875 },
+  "claude-haiku-4-20250514": { "input": 0.001, "output": 0.005, "cacheRead": 0.0009, "cacheWrite": 0.00125 },
+  "claude-4-20250514": { "input": 0.005, "output": 0.025, "cacheRead": 0.0045, "cacheWrite": 0.00625 },
+  "claude-3-5-sonnet-20241022": { "input": 0.003, "output": 0.015, "cacheRead": 0.0027, "cacheWrite": 0.00375 },
+  "claude-3-5-haiku-20241022": { "input": 0.0008, "output": 0.004, "cacheRead": 0.00072, "cacheWrite": 0.001 },
+  "deepseek-chat": { "input": 0.00027, "output": 0.0011, "cacheRead": 0.000027 },
+  "deepseek-reasoner": { "input": 0.00055, "output": 0.00219, "cacheRead": 0.000055 },
+  "deepseek-v4-flash": { "input": 0.00027, "output": 0.0011, "cacheRead": 0.000027 }
+}
