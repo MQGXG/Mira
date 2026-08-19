@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { lazy, Suspense, useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { ChatWindow } from "@mira/ui/chat/ChatWindow";
 import { Sidebar } from "@mira/ui/sidebar/Sidebar";
@@ -7,11 +7,12 @@ import { EditProjectDialog } from "@mira/ui/sidebar/EditProjectDialog";
 import { SettingsDialog } from "@mira/ui/sidebar/SettingsDialog";
 import { Menu, Plus, Settings, Network } from "lucide-react";
 import { Button } from "@mira/ui/components/ui/button";
-import { GraphPanel } from "@mira/ui/memory/GraphPanel";
 import { CommandPalette } from "@mira/ui/components/CommandPalette";
 import { StartupOverlay } from "./components/StartupOverlay";
 import { setActiveSessionId } from "@mira/ui/hooks/session-runtime-store";
 import { DEFAULT_PROJECT_COLOR } from "@mira/ui";
+
+const GraphPanel = lazy(() => import("@mira/ui/memory/GraphPanel").then((module) => ({ default: module.GraphPanel })));
 
 interface Project {
   project_id: string;
@@ -50,7 +51,7 @@ export function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [graphOpen, setGraphOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
-  // 启动状态：首次 loadProjects 完成（含等待 Sidecar ready）前显示启动加载动画
+  // 启动状态：首帧完成后结束遮罩，项目数据在后台加载
   const [booted, setBooted] = useState(false);
   // Core sidecar 断连遮罩：reconnecting 时显示"连接中断，正在重连"
   const [sidecarReconnecting, setSidecarReconnecting] = useState(false);
@@ -97,14 +98,13 @@ export function App() {
     } catch { /* 静默 */ }
   }, [activeProject]);
 
-  // 首屏加载：loadProjects 完成（loadProjects 内 IPC 会经 waitForReady 等待 Sidecar）
-  // 后置 booted=true 结束启动动画；期间保留 15s 定时刷新
+  // 首屏渲染与项目数据加载并行，避免 sidecar/数据库初始化阻塞整个界面
   useEffect(() => {
     let active = true;
-    // loadProjects 内部全 try/catch 不会 reject，void 显式标记避免 floating promise
-    void loadProjects().then(() => { if (active) setBooted(true); });
+    void loadProjects();
+    const frame = requestAnimationFrame(() => { if (active) setBooted(true); });
     const timer = setInterval(loadProjects, 15000);
-    return () => { active = false; clearInterval(timer); };
+    return () => { active = false; cancelAnimationFrame(frame); clearInterval(timer); };
   }, [loadProjects]);
 
   // 启动时检查桌宠/悬浮球设置
@@ -327,7 +327,11 @@ export function App() {
       </main>
 
       {settingsOpen && createPortal(<SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />, document.body)}
-      {graphOpen && <GraphPanel open={graphOpen} onClose={() => setGraphOpen(false)} projectId={activeProject} projectName={projects.find(p => p.project_id === activeProject)?.name} />}
+      {graphOpen && (
+        <Suspense fallback={null}>
+          <GraphPanel open={graphOpen} onClose={() => setGraphOpen(false)} projectId={activeProject} projectName={projects.find(p => p.project_id === activeProject)?.name} />
+        </Suspense>
+      )}
       <NewProjectDialog open={newProjectOpen} onClose={() => setNewProjectOpen(false)} onCreate={handleOpenProject} />
       <EditProjectDialog project={editingProject} open={!!editingProject} onClose={() => setEditingProject(null)} onSave={handleEditProject} onDelete={handleDeleteProject} />
       {paletteOpen && (

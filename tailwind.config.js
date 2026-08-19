@@ -2,8 +2,10 @@
 module.exports = {
   content: [
     "./index.html",
-    "./packages/**/*.{js,ts,jsx,tsx}",
-    "./apps/**/*.{js,ts,jsx,tsx}",
+    "./packages/core/src/**/*.{js,ts,jsx,tsx}",
+    "./packages/electron/src/**/*.{js,ts,jsx,tsx}",
+    "./packages/ui/src/**/*.{js,ts,jsx,tsx}",
+    "./apps/desktop/src/**/*.{js,ts,jsx,tsx}",
     "./node_modules/streamdown/dist/*.js",
     "./node_modules/@streamdown/code/dist/*.js",
     "./node_modules/@streamdown/mermaid/dist/*.js",

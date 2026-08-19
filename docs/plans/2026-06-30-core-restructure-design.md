@@ -1,5 +1,7 @@
 # core 包重构设计方案
 
+> 历史设计记录（2026-06）。目标目录大部分已经落地；当前路径以 `packages/core/src/agent/`、`system/permission/` 和 `shared/` 为准。
+
 ## 现状
 
 core 包根目录 47 个 .ts 文件平铺 + 13 个目录 = 60 个 entry。

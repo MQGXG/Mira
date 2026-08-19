@@ -1,5 +1,7 @@
 # core 包重构实施计划
 
+> 历史实施记录（2026-06）。请以当前源码和 `docs/project-audit-2026-08.md` 为准，本文中的旧路径和未勾选验收项不表示当前完成状态。
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** 将 core/src 根目录从 47 个平铺 .ts 文件重构为按变化频率分组的模块化结构

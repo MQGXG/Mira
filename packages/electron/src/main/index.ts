@@ -1,4 +1,4 @@
-import { app, BrowserWindow, globalShortcut } from "electron";
+import { app, BrowserWindow, dialog, globalShortcut } from "electron";
 import { createWindow, showMainWindow } from "../managers/window-manager";
 import { createTray, destroyTray } from "../managers/tray-manager";
 import { registerIPCHandlers } from "../ipc/handlers";
@@ -35,9 +35,7 @@ async function initializeApp() {
   // 并行启动 Sidecar Core 服务（独立 HTTP 进程），不阻塞窗口创建
   // startSidecar 同步段会先赋值 serverManager，故 registerIPCHandlers 可立即安全注册
   console.log("[Main] Starting Core Sidecar server (async)...");
-  const sidecarPromise = startSidecar(0).catch((err) => {
-    console.error(`[Main] Core Sidecar failed to start: ${err instanceof Error ? err.message : String(err)}`);
-  });
+  const sidecarPromise = startSidecar(0);
 
   registerIPCHandlers();
 
@@ -46,8 +44,16 @@ async function initializeApp() {
   createTray();
 
   // 等待 Sidecar 就绪（渲染层首屏动画期间完成，ready 后数据加载自然放行）
-  await sidecarPromise;
-  console.log("[Main] Core Sidecar server ready");
+  try {
+    await sidecarPromise;
+    console.log("[Main] Core Sidecar server ready");
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`[Main] Core Sidecar failed to start: ${message}`);
+    dialog.showErrorBox("Mira 启动失败", `Core 服务无法启动：${message}`);
+    app.quit();
+    return;
+  }
 
   globalShortcut.register("CommandOrControl+Shift+A", () => {
     showMainWindow();

@@ -5,7 +5,6 @@
   "main": "dist-electron/main.js",
   "packageManager": "pnpm@11.9.0",
   "scripts": {
-    "predev": "corepack pnpm install",
     "dev": "electron-vite dev",
     "prebuild": "corepack pnpm install",
     "build": "electron-vite build",

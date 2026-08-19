@@ -264,7 +264,7 @@ mira/
 │   │       │   ├── storage.ts        #   SQLite 持久化（重启恢复）
 │   │       │   └── tools.ts          #   mira_plugin_define/run/stop/undefine/list/inspect
 │   │       ├── types/ambient.d.ts   # 全局类型声明
-│   │       └── __tests__/           # 测试（Vitest 4，66+ 文件 630+ 用例，core 内）
+│   │       └── __tests__/           # Core 测试；完整基线为 84 个测试文件、759 个通过用例
 │   │
 │   ├── electron/                    # @mira/electron — Electron 主进程
 │   │   └── src/
@@ -737,7 +737,7 @@ LLM 生成的 HTML 代码块在沙箱 iframe（`sandbox="allow-scripts"`）中�
 | `openFile` / `openDirectory` / `saveFile` | 文件/目录选择对话框 |
 | `minimizeWindow` / `maximizeWindow` / `closeWindow` | 窗口控制 |
 
-> **注意**：`preload` 中仍暴露 `getPythonStatus` / `getPythonLogs` / `clearPythonLogs` / `restartPython`（Python 遗留）和 `agent.chat` / `agent.runAgentStream`，但**均无对应 ipcMain handler**（死 API）。真实的流式执行走 `agent.startStream` → `sidecar-bridge` → Core HTTP SSE。`memory.searchByProject` / `memory.getGraphData` 已桥接进 `preload`（经 `memory-ipc.ts` 代理到 sidecar HTTP）。
+> **注意**：真实的流式执行走 `agent.startStream` → `sidecar-bridge` → Core HTTP SSE。`memory.searchByProject` / `memory.getGraphData` 已桥接进 `preload`（经 `memory-ipc.ts` 代理到 sidecar HTTP）。旧版 Python 和 Agent API 已从 preload 移除。
 
 ## 数据库
 
@@ -789,7 +789,7 @@ pnpm package:mac    # macOS
 pnpm package:linux  # Linux
 
 # 测试
-pnpm test           # Vitest 4（66+ 文件，633+ 用例）
+pnpm test           # Vitest 4（当前基线：84 个测试文件，759 个通过用例）
 
 # 类型检查
 pnpm typecheck

@@ -82,7 +82,7 @@ import { Live2DAvatar } from "../components/assistant-ui/live2d-avatar"
 
 ## 桌宠 (Desktop Pet)
 
-Mira 支持独立的 Live2D 桌宠窗口，基于 Pixi.js + easy-live2d 实现。
+Mira 支持独立的 Live2D 桌宠窗口，基于 Pixi.js 8 + `untitled-pixi-live2d-engine` 实现。
 
 ### 硬件要求
 
@@ -97,8 +97,8 @@ Mira 支持独立的 Live2D 桌宠窗口，基于 Pixi.js + easy-live2d 实现�
 
 ### 技术栈
 
-- **Pixi.js 8** + **easy-live2d 0.4.4**
-- `preference: "webgl"` 强制 WebGL（easy-live2d 不支持 WebGPU）
+- **Pixi.js 8** + **untitled-pixi-live2d-engine**
+- Electron 主进程设置 GPU/WebGL 参数，桌宠窗口由 `pet-manager.ts` 管理
 - `Ticker.shared` 自动管理渲染循环
 - 模型路径：`/models/hiyori/Hiyori.model3.json`
 
@@ -106,8 +106,8 @@ Mira 支持独立的 Live2D 桌宠窗口，基于 Pixi.js + easy-live2d 实现�
 
 ```
 packages/electron/src/
-├── live2d-pet/pet-manager.ts    # 透明置顶窗口管理
-├── ipc/live2d-ipc.ts            # 桌宠开关 IPC
+├── live2d-pet/pet-manager.ts    # 透明置顶窗口管理，边界保存到 userData/pet-bounds.json
+├── ipc/live2d-ipc.ts            # 当前仅注册 live2d:toggle
 └── main/index.ts                # GPU 强制参数 + 退出清理
 
 apps/desktop/src/pet/

@@ -1,5 +1,7 @@
 # OmniAgent TypeScript Agent Core 后续阶段实施计划
 
+> 历史方案（2026-06）。当前实现使用根目录 `electron.vite.config.ts`、`packages/core` 和 `apps/desktop`，本文中的旧目录/API 不可直接照做。
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** 在已完成 Phase 1 的基础上，继续落地 Phase 2–5：权限门控、Skill/指令上下文、记忆持久化、质量可观测性，并补充未来扩展项，使 OmniAgent TS Core 达到生产级 Agent 桌面应用水平。

@@ -2,10 +2,10 @@
 
 ## 概述
 
-Mira 采用 Electron IPC 通信（**不使用 HTTP API**）。所有通信通过 `contextBridge` 暴露的 `electronAPI` 进行。
-实际 API 面定义在 `packages/electron/src/preload/index.ts`（`type ElectronAPI = typeof electronAPI`），以下为完整清单。
+渲染进程通过 Electron IPC 通信；Electron 主进程再通过本地 Core HTTP/SSE sidecar 与 Agent Core 通信。
+实际 API 面定义在 `packages/electron/src/preload/index.ts`（`type ElectronAPI = typeof electronAPI`），以下列出主要 API。
 
-> **注意**：`agent.chat` / `agent.runAgentStream` / `getPythonStatus` 等为死 API（preload 暴露但无 ipcMain handler），真实流式执行走 `agent.startStream`。
+> 真实流式执行走 `agent.startStream`，事件通过 `agent.onEvent` 返回。
 
 ## 全局方法
 
@@ -107,11 +107,4 @@ Mira 采用 Electron IPC 通信（**不使用 HTTP API**）。所有通信通过
 
 > 悬浮球默认不创建（懒加载），`sendMessage` 仅回显，未接入真实 Agent。
 
-## 死 API（无 ipcMain handler）
-
-| API | 说明 |
-|-----|------|
-| `getPythonStatus` / `getPythonLogs` / `clearPythonLogs` / `restartPython` | Python 遗留（项目零 Python 依赖） |
-| `agent.chat` / `agent.runAgentStream` | 旧执行入口，真实流式走 `agent.startStream` |
-
-> 流式事件监听统一使用 `agent.onEvent(channel, cb)`（preload 内封装，非独立 API）。
+> 流式事件监听统一使用 `agent.onEvent(channel, cb)`（preload 内封装，非独立 API）。旧版 Python 和 Agent API 已从 preload 移除。

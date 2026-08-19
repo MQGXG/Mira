@@ -27,7 +27,7 @@ packages/
 ├── core/          # @mira/core — 核心逻辑（Agent/LLM/Tools/Memory）
 ├── electron/      # @mira/electron — Electron 主进程
 ├── ui/            # @mira/ui — React 前端组件
-└── apps/desktop/  # @mira/desktop — Electron 应用壳
+apps/desktop/      # @mira/desktop — Electron 应用壳（位于仓库根目录）
 ```
 
 ## Agent 系统
@@ -154,10 +154,8 @@ npx playwright install chromium
 
 ## 下一步优化方向
 
-1. 会话标题自动生成（已完成，根据首条消息内容生成）
-2. 模型列表自动获取（拉取供应商可用模型）
-3. Exa/Parallel 搜索 API 的配置 UI
-4. `memory.searchByProject` / `memory.getGraphData` 已桥接进 preload（已完成）
-5. 清理 preload 死 API（`python:*`、`agent.chat` / `runAgentStream`）
-6. 清理未接线模块（provider-chain / fork-cache / system-context / tool-scope / run-coordinator）
-7. 悬浮球 `sendMessage` 接入真实 Agent（当前仅回显）
+1. 模型列表自动获取（拉取供应商可用模型）
+2. Exa/Parallel 搜索 API 的配置 UI
+3. 增加独立 readiness，区分 HTTP 存活与数据库/记忆初始化完成
+4. 清理未接线模块（provider-chain / fork-cache / system-context / tool-scope / run-coordinator）
+5. 悬浮球 `sendMessage` 接入真实 Agent（当前仍为独立回显逻辑）

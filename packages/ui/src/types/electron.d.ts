@@ -5,21 +5,11 @@
  * 具体业务类型请从 services/ 目录导入。
  */
 
-export interface LogEntry {
-  timestamp: string;
-  level: "info" | "error";
-  message: string;
-}
-
 export interface ElectronAPI {
   minimizeWindow: () => void;
   maximizeWindow: () => void;
   closeWindow: () => void;
   getPathForFile: (file: File) => string;
-  getPythonStatus: () => Promise<{ status: string; port: number; url: string; error?: string }>;
-  getPythonLogs: () => Promise<LogEntry[]>;
-  clearPythonLogs: () => Promise<void>;
-  restartPython: () => Promise<{ status: string; port: number; url: string; error?: string }>;
   openFile: () => Promise<{ token: string; files: Array<{ path: string; name: string; size: number }>; error?: string }>;
   openDirectory: () => Promise<string[]>;
   saveFile: (name: string) => Promise<string>;
@@ -71,9 +61,6 @@ export interface ElectronAPI {
   agent: {
     executeTool: (name: string, args: Record<string, unknown>) => Promise<{ success: boolean; output?: string; error?: string }>;
     listTools: (mode?: string) => Promise<Array<{ name: string; description: string; parameters: Record<string, unknown> }>>;
-    chat: (config: Record<string, unknown>, message: string, history: Array<{ role: string; content: string }>) => Promise<Array<{ type: string; [key: string]: unknown }>>;
-    runAgentStream: (sessionId: string, message: string, config: Record<string, unknown>) => Promise<Array<{ type: string; [key: string]: unknown }>>;
-
     /** 列出可用 Skill */
     listSkills: () => Promise<Array<{ name: string; description: string; category: string | null }>>;
 

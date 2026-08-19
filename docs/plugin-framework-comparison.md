@@ -1,11 +1,10 @@
 # Mira "一切皆插件" 骨架对标报告（改造后 v5）
 
 > 对标项目：[deepseek-ai/deepseek-harness](https://github.com/deepseek-ai/deepseek-harness)（`D:\mycodeHub\deepseek-harness`）
-> 分析对象：Mira（`D:\mycodeHub\VSMTI`，Electron 桌面应用）
+> 分析对象：Mira（`D:\mycodeHub\Mira`，Electron 桌面应用）
 > 版本：v5（v4 + 配置组合 Bundle/patch + 工具 seam 打通），2026-08-19
 > 说明：v2 基础上的差距补齐版。三大差距（事件接缝 / Capability Seams / 循环可替换）已全部落地。
 
----
 
 ## 一、结论速览
 
@@ -21,7 +20,6 @@
 | 6. Agent 循环是插件 | `ctx.agentLoop` 可替换 | **`AgentLoopImpl` 契约 + setLoop 可替换**；默认实现封装现有 Agent | ✅ 契约对齐 |
 | 7. 运行期自修改 | cordis_* + VM 沙箱 + 审批 | **mira_plugin_* + 沙箱 + 审批门 + client half + SQLite 持久化** | ✅ 已对齐 |
 
----
 
 ## 二、已对齐支柱（实测验证）
 
@@ -30,9 +28,10 @@
 **位置**：`packages/core/src/vendor/{cordis,cosmokit,schemastery}`（源码 vendored）
 
 - Context = 服务仓库：`ctx.tools/llm/permissions/sessions/memory/dynamicMemory/mcp/catalog/config/agentLoop`
-- 事件 5 种分发：`emit` / `parallel` / `serial` / `bail` / `waterfall`
-- Fiber 生命周期 + `ctx.effect()` 可逆注册
-- 插件依赖声明：`inject: ['tools']`，服务就绪才激活
+- 事件支持 `emit` / `parallel` / `serial` / `bail` / `waterfall` 分发
+- Fiber 生命周期和 `ctx.effect()` 可逆注册
+- 插件通过依赖声明在服务就绪后激活
+
 
 **差异（工程决策，非缺陷）**：
 | | deepseek-harness | Mira |
@@ -47,18 +46,19 @@
 
 **位置**：`packages/core/src/framework/events.ts`
 
-- `declare module "../vendor/cordis/context"` 合并 `Events` 接口
-- 已声明事件：`agent/pre-step`（waterfall）、`agent/request`、`agent/turn-stopping`、`session/start/end`、`tools/pre-execute/post-execute`、`memory/*`、`plugin/*`
-- 插件监听即获得静态校验（`ctx.on("agent/pre-step", (messages, next) => ...)`）
-- 自定义事件同样可合并（测试中验证，如 `test/session-started`）
+- 通过 `declare module` 扩展 Cordis `Events` 接口
+- 已声明 `agent/pre-step`、`agent/request`、`agent/turn-stopping`、`tools/pre-execute/post-execute`、`session`、`memory` 和 `plugin` 事件
+- 插件监听获得静态类型校验
+
 
 **测试证据**：`framework/__tests__/framework.test.ts` + `agent-loop.test.ts`（`agent/pre-step` 在真实 Agent.run 中触发）。
 
 ### 支柱 3：可逆 effect ✅
 
-- `ctx.effect()` 注册 disposer，fiber 卸载自动回滚
-- 插件卸载回滚实测：注册工具/hook → 卸载插件 → 工具消失、hook 失效（`services.test.ts`、`plugins.test.ts`）
-- `ToolRegistry.unregister()` 补齐（可逆注册）
+- `ctx.effect()` 注册 disposer，Fiber 卸载时自动回滚
+- 插件卸载会撤销工具和 hook 注册，`ToolRegistry.unregister()` 支持可逆注册
+- 插件卸载回滚已由服务和插件测试覆盖
+
 
 ### 支柱 7：运行期自修改 ✅
 
@@ -77,7 +77,6 @@
 
 **测试证据**：`selfmod/__tests__/selfmod.test.ts`（14 用例）+ `selfmod-server.test.ts`（4 用例，HTTP 端点）。
 
----
 
 ## 三、仍未对齐的差距（诚实标注）
 
@@ -107,9 +106,9 @@
 | `ctx.agentLoop` 是唯一循环插件（bundle） | **`AgentLoopImpl` + `setLoop()` 可替换**；循环**已物理拆分**（`agent/stages.ts` 609 行，`agent.ts` 502 行只剩编排） | 已对齐 |
 
 **循环拆分明细**（`agent/stages.ts`，经 `AgentInternals` 依赖接口解耦）：
-- `prepareRun`（初始化）、`restoreSession`（会话恢复）、`buildMessages`（消息构建）、`handleTurn`（循环单步）、`finalizeRun`（清理）
-- 辅助函数：`persistImages`、`injectGraphMemory`、`maybeExtractSessionMemory`、`rememberExtractedToGraph`、`maybeMaintainGraph`
-- 文件级解析函数：`tryParseUserWithImages`、`hasToolCalls`、`tryParseAssistantPayload`
+- `prepareRun`、`restoreSession`、`buildMessages`、`handleTurn`、`finalizeRun`
+- 相关辅助函数负责图片持久化、图谱记忆注入、会话记忆提取和图谱维护
+- 文件级解析函数负责带图片用户输入、工具调用和助手 payload 的解析
 
 **事件接缝已全部接通**：`agent/pre-step`、`agent/request`（请求改写）、`tools/pre-execute/post-execute`（工具策略）、`agent/turn-stopping`（已声明）——插件可在不修改循环的前提下拦截每一步。
 
@@ -119,7 +118,6 @@
 |---|---|---|
 | host/client 双半各自独立沙箱；渲染失败自动 steer 修复 | host 沙箱完整；client half 用 `new Function`（隔离弱）；无渲染失败自动回注 | client half 沙箱隔离弱于 dsh 的独立页面 iframe |
 
----
 
 ## 四、剩余（可选）工程项
 
@@ -134,7 +132,6 @@
 
 未做项（按需推进）：edit_file/apply_patch 的 seam 迁移、git 工具走 subprocess seam、更多 UI 层沙箱（iframe/web-worker 深度隔离）。
 
----
 
 ## 五、验证证据汇总
 
@@ -148,19 +145,18 @@
 | 运行期自修改 | `selfmod/__tests__/selfmod.test.ts` | 14 |
 | selfmod HTTP 端点 | `__tests__/selfmod-server.test.ts` | 4 |
 | **新增合计** | | **~69** |
-| 现有核心套件无回归 | `packages/core/src/__tests__/` | 633+ |
+| 现有测试套件无回归 | `packages/core/src/**/__tests__/` + UI 测试 | 759 个通过用例 |
 
-类型检查：`tsc --noEmit` 0 错误；Electron `pnpm build` 三端（main/preload/renderer）成功。
+类型检查：`tsc --noEmit` 0 错误；Electron `pnpm build` 多入口（main/preload/renderer/sidecar）成功。
 
----
 
 ## 六、总结
 
 **一句话**：Mira 已从"概念雏形 + 手写 EventEmitter"成长为**与 dsh 全面对齐的完整插件框架**——Cordis 内核、全事件接缝、可替换 Capability（换 Provider 换产品）、可替换 Agent 循环（已物理拆分）、配置组合（Bundle/patch）、运行期自修改（定义/持久化/激活/卸载/回滚 + 审批门 + client half）。结构性差距已全部清零，剩余仅可选工程优化。
 
 "一切皆插件"达成的能力矩阵：
-- **行为走事件**：`agent/pre-step`、`agent/request`、`tools/pre-execute/post-execute`（插件不改循环拦截每一步）
-- **服务走寻址**：`ctx.*` 统一注册表，fs/shell/subprocess Provider 可替换（同步 capabilityRegistry，工具即时跟随）
-- **配置走组合**：Bundle 叠加 + `plugins.patch.json` 覆盖 + `dumpConfig` 打印启动树
-- **循环走契约**：`AgentLoopImpl` + `setLoop()` 换循环换产品；5 阶段物理拆分（stages.ts）
-- **能力走插件**：`mira_plugin_*` 定义/持久化/激活/卸载/回滚 + 审批门 + client half UI
+- **行为走事件**：`agent/pre-step`、`agent/request`、`tools/pre-execute/post-execute`
+- **服务走寻址**：`ctx.*` 统一注册表，fs/shell/subprocess Provider 可替换
+- **配置走组合**：Bundle 叠加 + `plugins.patch.json` 覆盖 + `dumpConfig`
+- **循环走契约**：`AgentLoopImpl` + `setLoop()` 可替换，循环按阶段拆分
+- **能力走插件**：`mira_plugin_*` 定义/持久化/激活/卸载/回滚 + 审批门 + client half

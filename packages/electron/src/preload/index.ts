@@ -9,11 +9,6 @@ const electronAPI = {
   /** 拖拽/粘贴 File 的原始路径（官方 API，替代已弃用的 File.path） */
   getPathForFile: (file: File) => webUtils.getPathForFile(file),
 
-  getPythonStatus: () => ipcRenderer.invoke("python:status"),
-  getPythonLogs: () => ipcRenderer.invoke("python:logs"),
-  clearPythonLogs: () => ipcRenderer.invoke("python:clearLogs"),
-  restartPython: () => ipcRenderer.invoke("python:restart"),
-
   openFile: () => ipcRenderer.invoke("dialog:openFile"),
   openDirectory: () => ipcRenderer.invoke("dialog:openDirectory"),
   saveFile: (name: string) => ipcRenderer.invoke("dialog:saveFile", name),
@@ -65,11 +60,6 @@ const electronAPI = {
       ipcRenderer.invoke("agent:executeTool", name, args),
     listTools: () => ipcRenderer.invoke("agent:listTools"),
     listAgents: () => ipcRenderer.invoke("agent:listAgents"),
-    chat: (config: Record<string, unknown>, message: string, history: Array<{ role: string; content: string }>) =>
-      ipcRenderer.invoke("agent:chat", config, message, history),
-    runAgentStream: (sessionId: string, message: string, config: Record<string, unknown>) =>
-      ipcRenderer.invoke("run-agent-stream", sessionId, message, config),
-
     /** 实时流式 Agent（支持交互式权限确认） */
     startStream: (sessionId: string, message: string, config: Record<string, unknown>) =>
       ipcRenderer.invoke("agent:startStream", sessionId, message, config),

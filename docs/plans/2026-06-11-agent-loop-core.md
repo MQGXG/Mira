@@ -1,5 +1,7 @@
 # Agent Loop Core 实现计划
 
+> 历史方案（2026-06）。当前项目已迁移到 TypeScript Core + Electron sidecar，本文件中的 Python/FastAPI 路径和命令不代表当前实现。
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** 将 Hook 系统、权限系统、TodoWrite 集成到 OmniAgent 的 Agent 循环核心

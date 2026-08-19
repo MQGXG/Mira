@@ -11,12 +11,11 @@ mira/
 ├── packages/
 │   ├── core/                    # @mira/core — 核心逻辑
 │   │   ├── src/
-│   │   │   ├── agent.ts         # Agent 核心循环
 │   │   │   ├── agent/           # Agent 子模块（状态机/回合/Max Mode）
 │   │   │   ├── llm/             # LLM 分层架构
-│   │   │   ├── tools/           # 32 个工具
+│   │   │   ├── tools/           # 56 个基础默认工具
 │   │   │   ├── memory/          # 四层记忆系统
-│   │   │   ├── permission.ts    # 权限系统
+│   │   │   ├── system/permission/ # 权限系统
 │   │   │   ├── skill/           # 技能系统
 │   │   │   ├── workflow/        # Dynamic Workflow
 │   │   │   ├── mcp/             # MCP 协议
@@ -29,7 +28,7 @@ mira/
 │   │   ├── src/
 │   │   │   ├── main/            # 主进程入口
 │   │   │   ├── preload/         # 预加载脚本 (contextBridge)
-│   │   │   ├── ipc/             # IPC 通信（14 个模块）
+│   │   │   ├── ipc/             # IPC 通信（sidecar/session/config 等模块）
 │   │   │   ├── managers/        # 窗口/托盘管理
 │   │   │   └── utils/           # 日志/环境变量
 │   │   ├── package.json
@@ -47,8 +46,8 @@ mira/
 │   │   ├── package.json
 │   │   └── tsconfig.json
 │   │
-│   └── apps/
-│       └── desktop/             # @mira/desktop — Electron 应用壳
+├── apps/
+│   └── desktop/                 # @mira/desktop — Electron 应用壳
 │           ├── src/
 │           │   ├── App.tsx       # 根组件
 │           │   ├── main.tsx      # React 入口
@@ -74,12 +73,12 @@ mira/
 
 ### @mira/core
 
-核心逻辑包，**无外部依赖**（除 zod、effect、@modelcontextprotocol/sdk）。
+核心逻辑包，不依赖其他 Mira workspace 包；自身依赖 sql.js、zod、effect、MCP SDK 及文档/媒体处理库。
 
 包含：
 - Agent 核心循环（状态机、回合处理、上下文管理）
 - LLM 分层架构（schema → protocols → providers → route）
-- 32 个工具实现
+- 56 个基础默认工具实现，OfficeCLI 工具按环境条件注册
 - 四层记忆系统（checkpoint/builtin/fts/file/vector）
 - 声明式权限系统
 - Agent 模式配置（可扩展）
@@ -97,7 +96,7 @@ Electron 主进程包，依赖 `@mira/core`。
 包含：
 - 应用入口（main/index.ts）
 - 预加载脚本（preload/index.ts）
-- IPC 通信层（14 个模块）
+- IPC 通信层（sidecar/session/config 等模块）
 - 窗口/托盘管理
 - 日志/环境变量工具
 
@@ -143,8 +142,8 @@ Electron 应用壳，依赖以上三个包。
 @mira/ui
   └── @mira/core
 
-@mira/core（独立）
-  └── zod, effect, @modelcontextprotocol/sdk
+@mira/core（不依赖其他 Mira workspace 包）
+  └── sql.js, zod, effect, @modelcontextprotocol/sdk 及文档/媒体处理库
 ```
 
 ## 开发命令
@@ -156,7 +155,7 @@ pnpm install
 # 开发模式（从根目录）
 pnpm dev
 
-# 构建所有包
+# 构建根 Electron 应用（包含 main/preload/renderer/sidecar 多入口）
 pnpm build
 
 # 类型检查

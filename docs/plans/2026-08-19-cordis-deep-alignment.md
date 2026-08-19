@@ -1,7 +1,7 @@
 # Mira Cordis 深度对齐实施计划 v2（以 deepseek-harness 最新为准）
 
 > 对标项目：[deepseek-ai/deepseek-harness](https://github.com/deepseek-ai/deepseek-harness)（`D:\mycodeHub\deepseek-harness`，2026-08-19 拉取最新）
-> 分析对象：Mira（`D:\mycodeHub\VSMTI`）
+> 分析对象：Mira（`D:\mycodeHub\Mira`）
 > 计划版本：v2，2026-08-19（v1 → v2 修订说明见文末）
 > 前置文档：`docs/plugin-framework-comparison.md`（v5）
 

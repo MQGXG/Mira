@@ -1,5 +1,7 @@
 # Mira 双模平台（桌面 + 终端编码代理）实施计划
 
+> 历史方案（2026-06）。其中保留 Python 后端和新增 CLI 包的设计未作为当前默认架构采用；当前 Mira 为零 Python 依赖的 TypeScript Core + Electron sidecar 应用。
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **目标：** 将现有 Mira 从"纯桌面应用"改造为"一套引擎，两套界面"的双模平台——保持桌面助手的同时，产出终端编码代理

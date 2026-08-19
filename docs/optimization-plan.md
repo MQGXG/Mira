@@ -1,6 +1,6 @@
 # Mira 优化计划 — 参考 4 个外部项目的高价值模式落地
 
-> 状态：**执行中**（M7/M8/M9 ✅，M1–M6 实现未提交） | 基线：Mira 当前主干
+> 状态：**大部分已实现**（M1/M2/M3/M5/M6-C1/C2/C3/C4、M7/M8/M9 已在当前代码中存在；M4 仍需核对动作插件落地状态） | 基线：Mira 当前主干
 > 参考项目：
 > - **qwen-audio-agent** `E:\mycodeHub\qwen-audio-agent` — 实时语音 / 后台任务 / 记忆
 > - **opencode** `E:\mycodeHub\opencode` — Agent Core 健壮性

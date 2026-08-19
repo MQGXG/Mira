@@ -1,5 +1,7 @@
 # Mira Agent Core 优化实施计划
 
+> 历史方案（2026-06）。当前 preload 已移除旧的 `agent:chat`、`run-agent-stream` 等入口，实际流式链路为 `agent.startStream` + Core HTTP/SSE sidecar。
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** 修复 Mira Agent Core 中的 17 个已识别问题，提升安全性、稳定性、可维护性

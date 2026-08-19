@@ -24,9 +24,11 @@ pnpm dev
 复制 `.env.example` 为 `.env`，填入 API Key：
 
 ```bash
-OPENAI_API_KEY=sk-xxx
-ANTHROPIC_API_KEY=sk-ant-xxx
-DEEPSEEK_API_KEY=sk-xxx
+MIRA_API_KEY=sk-xxx
+MIRA_PROVIDER=openai
+MIRA_MODEL=gpt-4o
+MIRA_API_URL=https://api.openai.com/v1
+MIRA_MODE=assistant
 ```
 
 ## 打包部署
@@ -35,8 +37,8 @@ DEEPSEEK_API_KEY=sk-xxx
 
 ```bash
 pnpm package:win
-# 生成 release/Mira-1.0.0-portable.exe
-# 便携模式，无需安装，双击即可运行
+# 生成 release/Mira-Setup-1.0.0.exe
+# Windows NSIS 安装包
 ```
 
 ### macOS
@@ -55,12 +57,9 @@ pnpm package:linux
 
 ## 分发
 
-### 便携模式（推荐）
+### 分发形式
 
-Mira 默认使用便携模式打包：
-- **无需安装** — 目标电脑无需安装任何运行时
-- **单文件分发** — 复制 exe/dmg/AppImage 即可
-- **数据本地化** — 所有数据存储在可执行文件同级目录
+Mira 使用 electron-builder：Windows 为 NSIS 安装包，macOS 为 DMG，Linux 为 AppImage。目标电脑无需安装 Node.js 等运行时。
 
 ### 数据目录
 
@@ -79,7 +78,7 @@ Mira 默认使用便携模式打包：
 
 ### 全局配置
 
-`~/.config/mira/config.json`：
+全局配置位于 Electron `app.getPath("userData")` 目录下的 `config.json`。Windows 通常为 `%APPDATA%/Mira/config.json`；macOS 和 Linux 路径以 Electron 运行时返回值为准：
 
 ```json
 {

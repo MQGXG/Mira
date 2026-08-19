@@ -109,7 +109,7 @@ mira/
     → ChatWindow 逐事件渲染
 ```
 
-**真实流式执行走 `agent.startStream` → `sidecar-bridge` → Core HTTP SSE**；`agent.chat` / `runAgentStream` 为 preload 中的死 API（无 handler）。
+**真实流式执行走 `agent.startStream` → `sidecar-bridge` → Core HTTP SSE**；旧版 Python 和 Agent API 已从 preload 移除。
 
 ### 3.2 工具执行流
 
@@ -402,11 +402,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
   platform, notify,
   openFile / openDirectory / saveFile,
   minimizeWindow / maximizeWindow / closeWindow,
-  // 死 API（无 ipcMain handler）：getPythonStatus / getPythonLogs / clearPythonLogs / restartPython / agent.chat / runAgentStream
 })
 ```
 
-> `memory.searchByProject` / `memory.getGraphData` 已桥接进 preload（经 `memory-ipc.ts` 代理到 sidecar HTTP）；`python:*`、`agent.chat` / `runAgentStream` 为死 API。
+> `memory.searchByProject` / `memory.getGraphData` 已桥接进 preload（经 `memory-ipc.ts` 代理到 sidecar HTTP）；旧版 Python 和 Agent API 已从 preload 移除。
 
 ## 七、数据库
 
