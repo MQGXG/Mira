@@ -12,6 +12,7 @@ import type { PluginId, PackageId } from "./registry"
 import type { SelfModConfig } from "./registry"
 import { buildCtxFacade, createSandbox, evaluateHostCode, precheckCode } from "./sandbox"
 import { SelfModStorage } from "./storage"
+import { pluginRecoveryStore, type PluginRecoveryStore, type RecoveryTransaction } from "./recovery"
 
 /** 插件形状校验：function 或 { apply } 对象 */
 function isPlugin(value: unknown): boolean {
@@ -90,7 +91,16 @@ export class DynamicPluginRunner {
    * 激活插件：沙箱求值 → 挂载为真实 Cordis 插件
    * @param mode run：启动当前版本；update：切换版本
    */
-  async run(sessionId: string, pluginId: PluginId, packageId: PackageId, mode: "run" | "update" = "run"): Promise<RunResult> {
+  async run(
+    sessionId: string,
+    pluginId: PluginId,
+    packageId: PackageId,
+    mode: "run" | "update" = "run",
+    options: { recoveryStore?: PluginRecoveryStore } = {},
+  ): Promise<RunResult> {
+    const recovery = options.recoveryStore ?? pluginRecoveryStore
+    // begin 之后的一切失败路径都会 recover 回滚 WAL；begin 之前抛错时 txn 为 undefined，无需回滚
+    let txn: RecoveryTransaction | undefined
     try {
       // 审批门（防御性检查）：ctx.permissions 明确 deny "selfmod" 时拒绝激活。
       // 常规审批由 turn-runner 三层 Gate 处理（工具 permission: "selfmod"），此处兜底。
@@ -113,6 +123,15 @@ export class DynamicPluginRunner {
         return { ok: false, message: `插件 ${pluginId} 当前版本为 ${plugin.currentPackageId}，请用 mode: "update" 切换` }
       }
 
+      // prevPackageId = 当前正在运行的健康版本。currentPackageId 只在成功 markRunning 时更新，
+      // 是"最后成功运行的版本" = last-known-good；fresh run 时为 undefined → null。
+      // update 时必然 ≠ target；不取"排除 target 后 createdAt 最新"——那可能是从未运行验证过的版本。
+      const prevPackageId = plugin.currentPackageId !== undefined && plugin.currentPackageId !== packageId
+        ? plugin.currentPackageId
+        : null
+      // 激活前写 WAL（崩溃窗口保护）
+      txn = await recovery.begin(sessionId, pluginId, mode, packageId, prevPackageId)
+
       // 停止旧激活（切换版本时先卸载）
       await this.stop(sessionId, pluginId)
 
@@ -122,6 +141,8 @@ export class DynamicPluginRunner {
       if (!isPlugin(evaluated)) {
         const hint = evaluated === undefined ? "（是否忘了 return 插件对象？）" : "（期望 function 或 { apply(ctx) }）"
         this.registry.markFailed(pluginId, packageId, "插件代码未返回有效插件形状 " + hint)
+        // recover 自身失败不掩盖"未返回有效插件形状"的可操作提示（残留 prepared 由启动时 recoverPending 兜底）
+        await recovery.recover(sessionId, txn.transactionId, "install-failed").catch(() => {})
         return { ok: false, message: `插件 ${pluginId} 求值失败：未返回有效插件形状 ${hint}` }
       }
 
@@ -130,6 +151,12 @@ export class DynamicPluginRunner {
       this.activePlugins.set(pluginId, evaluated)
       this.registry.markRunning(pluginId, packageId)
       const hasClientCode = !!pkg.clientCode
+      // 正常路径立即了结事务（seal→markHealthy→clear，激活即时生效，无需重启验证）。
+      // 注意：此处 WAL 写失败（sql.js 本地写失败概率极低）会抛错进 catch 返回 ok:false 误报——
+      // 插件此时已挂载运行，误报靠用户重试/进程重启自愈（prepared 残留由启动时 recoverPending 处理）。
+      await recovery.seal(sessionId, txn.transactionId)
+      await recovery.markHealthy(sessionId, txn.transactionId)
+      await recovery.clear(sessionId, txn.transactionId)
       return {
         ok: true,
         message: `插件 ${pluginId} 已激活（版本 ${packageId}）${hasClientCode ? "，含浏览器端 client half" : ""}。如不再需要可调用 mira_plugin_stop 停止。`,
@@ -140,6 +167,9 @@ export class DynamicPluginRunner {
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error)
       this.registry.markFailed(pluginId, packageId, msg)
+      // 失败路径与 isPlugin 分支对齐：begin 之后的一切异常都回滚 WAL（prepared → rolled-back）。
+      // recover 自身失败不掩盖原始错误（残留 prepared 由启动时 recoverPending 兜底）。
+      if (txn) await recovery.recover(sessionId, txn.transactionId, "install-failed").catch(() => {})
       return { ok: false, message: `插件 ${pluginId} 激活失败：${msg}` }
     }
   }

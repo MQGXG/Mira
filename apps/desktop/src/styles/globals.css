@@ -406,6 +406,14 @@ html.dark code:not(pre code) { background: var(--bg-secondary); color: var(--for
   letter-spacing: 0.5px;
 }
 
+.startup-overlay__error {
+  font-size: 13px;
+  color: var(--error);
+  max-width: 60vw;
+  text-align: center;
+  line-height: 1.5;
+}
+
 /* 加载点 */
 .startup-overlay__dots {
   display: flex;

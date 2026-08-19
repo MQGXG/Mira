@@ -56,7 +56,7 @@ const agentRegistry = new AgentRegistry()
 
 /** 全局 Cordis Context（懒加载）：装配统一服务注册表 + 运行期自修改 */
 let miraContext: MiraContext | null = null
-async function getMiraContext(): Promise<MiraContext> {
+export async function getMiraContext(): Promise<MiraContext> {
   if (!miraContext) {
     // tools 复用共享 registry（createDefaultRegistry），让 mira_plugin_* 工具进入 Agent 工具集
     miraContext = await createMiraContext({ toolsRegistry: registry })

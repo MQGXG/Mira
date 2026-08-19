@@ -9,6 +9,8 @@ export interface ElectronAPI {
   minimizeWindow: () => void;
   maximizeWindow: () => void;
   closeWindow: () => void;
+  /** 首帧渲染就绪上报（取消主进程 boot 超时提示） */
+  notifyRendererReady: () => void;
   getPathForFile: (file: File) => string;
   openFile: () => Promise<{ token: string; files: Array<{ path: string; name: string; size: number }>; error?: string }>;
   openDirectory: () => Promise<string[]>;

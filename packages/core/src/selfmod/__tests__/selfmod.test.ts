@@ -64,6 +64,11 @@ describe("运行期自修改（VM 沙箱）", () => {
 })
 
 describe("运行期自修改（生命周期）", () => {
+  // 隔离测试 DB：run() 会经 pluginRecoveryStore 单例写 selfmod_recovery 表，
+  // 把 userData 指到临时目录，防止落进仓库 cwd/mira.db
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "mira-selfmod-lc-"))
+  initPlatformPaths({ userData: tmp })
+
   it("define → run → 插件 hook 生效 → stop 回滚 → undefine", async () => {
     const ctx = await createMiraContext()
     const runner = new DynamicPluginRunner(ctx, { vmTimeoutMs: 5000 })

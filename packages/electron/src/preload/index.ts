@@ -6,6 +6,9 @@ const electronAPI = {
   maximizeWindow: () => ipcRenderer.send("window:maximize"),
   closeWindow: () => ipcRenderer.send("window:close"),
 
+  /** 首帧渲染就绪上报（取消主进程 boot 超时提示） */
+  notifyRendererReady: () => ipcRenderer.send("mira:renderer-boot"),
+
   /** 拖拽/粘贴 File 的原始路径（官方 API，替代已弃用的 File.path） */
   getPathForFile: (file: File) => webUtils.getPathForFile(file),
 

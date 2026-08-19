@@ -1234,7 +1234,7 @@ function startRendererBootWindow(): void {
         title: "Mira 界面加载缓慢",
         message: "界面未能按时完成加载，可尝试重启或查看日志。",
         buttons: ["重启", "忽略"],
-      }).then(({ response }) => { if (response === 0) app.relaunch(); });
+      }).then(({ response }) => { if (response === 0) { app.relaunch(); app.exit(0); } });
     }
   }, RENDERER_BOOT_TIMEOUT_MS + 1000);
 }

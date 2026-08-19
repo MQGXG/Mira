@@ -14,6 +14,8 @@ export { DynamicPluginRunner } from "./runner"
 export type { RunResult } from "./runner"
 export { SelfModStorage, selfModStorage } from "./storage"
 export type { StoredPluginRow } from "./storage"
+export { PluginRecoveryStore, pluginRecoveryStore, RECOVERY_TABLE, RECOVERY_PHASES, recoverPending } from "./recovery"
+export type { RecoveryPhase, RecoveryAction, RecoveryFailureReason, RecoveryTransaction, RecoverPendingOptions } from "./recovery"
 export {
   pluginDefineTool,
   pluginRunTool,

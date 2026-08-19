@@ -132,6 +132,13 @@ export { createServer, startServer } from "./system/server"
 export type { ServerOptions } from "./system/server"
 export type { APIContext } from "./system/server"
 
+// 崩溃证据（active-run 标记）
+export { beginDesktopRun, readLastRun, defaultCrashStatePath } from "./system/crash-evidence"
+export type { CrashRun, CrashRunRecord, UnreadableCrashRun } from "./system/crash-evidence"
+
+// 启动健康检查
+export { waitForHealth, rendererBootWindow, RENDERER_BOOT_TIMEOUT_MS } from "./system/health"
+
 // 新模块
 export { featureFlags, isFeatureEnabled } from "./config/flags"
 export { SnapshotManager } from "./session/snapshot"

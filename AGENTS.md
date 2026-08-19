@@ -102,6 +102,8 @@ mira/
 │   │       │   ├── mcp-plugin-registry.ts# MCP/Plugin 生命周期管理
 │   │       │   ├── registry-init.ts #   注册表初始化（63 个默认工具：56 基础 + 7 officecli 条件注册）
 │   │       │   ├── server-manager.ts#   服务器管理器（子进程 HTTP + SSE 桥接）
+│   │       │   ├── crash-evidence.ts#   崩溃证据（active-run 标记 + ownerId 保护 + 原子写）
+│   │       │   ├── health.ts        #   启动健康检查（waitForHealth 轮询 + rendererBootWindow 判定）
 │   │       │   ├── permission/      #   权限子模块
 │   │       │   │   ├── index.ts     #     PermissionSet（通配符匹配 + 硬拒绝列表）
 │   │       │   │   ├── gate.ts      #     权限门控（三层 Gate + 资源提取）
@@ -275,7 +277,8 @@ mira/
 │   │       │   ├── index.ts          #   setupSelfModification 装配 + 导出
 │   │       │   ├── sandbox.ts        #   VM 沙箱（预检 + 超时 + Node API 重定向 + 受限 ctx）
 │   │       │   ├── registry.ts       #   动态插件注册表（Plugin → 不可变 Package 版本）
-│   │       │   ├── runner.ts         #   生命周期（define/run/stop/undefine + 审批门 + 持久化）
+│   │       │   ├── runner.ts         #   生命周期（define/run/stop/undefine + 审批门 + 持久化 + WAL 事务化）
+│   │       │   ├── recovery.ts       #   插件激活 WAL（PluginRecoveryStore 状态机 + recoverPending 崩溃恢复）
 │   │       │   ├── storage.ts        #   SQLite 持久化（重启恢复）
 │   │       │   └── tools.ts          #   mira_plugin_define/run/stop/undefine/list/inspect
 │   │       ├── capability/            # 能力缝（Capability Seams：fs/subprocess/shell/code-runtime/sandbox/office，setProvider 换产品）
@@ -283,7 +286,7 @@ mira/
 │   │       ├── scope/                 # 作用域上下文原语（dsh-scope 移植：createScope/scopeTarget，Agent 作用域注册）
 │   │       ├── assets/                # 内置数据（models-pricing.json 定价表 + tool-catalog.json 工具目录）
 │   │       ├── types/ambient.d.ts   # 全局类型声明
-│   │       └── __tests__/           # Core 测试；完整基线为 87 个测试文件、774 个通过用例
+│   │       └── __tests__/           # Core 测试；完整基线为 90 个测试文件、780 个通过用例
 │   │
 │   ├── electron/                    # @mira/electron — Electron 主进程
 │   │   └── src/
@@ -603,7 +606,7 @@ Mira 已落地完整插件框架内核（对齐 deepseek-harness 的 vendored Co
 | **Capability Seams** | `ctx.fs/subprocess/shell.setProvider()` 换 Provider 换产品（同步 capabilityRegistry，工具即时跟随） | `services/capability.ts` |
 | **循环插件化** | `AgentLoopImpl` + `setLoop()` 可替换；`agent/pre-step/request`、`tools/pre-execute/post-execute`、`agent/step-end`（回合级收敛保护）事件接缝已接通 | `services/agent-loop.ts`、`agent/stages.ts`、`agent/convergence-guard.ts` |
 | **配置组合** | Bundle 叠加 + `{project}/.mira/plugins.patch.json` 覆盖 + `dumpConfig()` | `config/bundle.ts` |
-| **运行期自修改** | Agent 用 `mira_plugin_*` 定义/持久化/激活/卸载自己的插件（VM 沙箱 + 审批门 + client half Worker 沙箱） | `selfmod/` |
+| **运行期自修改** | Agent 用 `mira_plugin_*` 定义/持久化/激活/卸载自己的插件（VM 沙箱 + 审批门 + client half Worker 沙箱）；**插件激活 WAL**（`selfmod/recovery.ts`）：激活事务相位状态机（prepared→verified/rolled-back）+ sidecar 启动 `recoverPending` 崩溃回滚（last-known-good 恢复，DSH install-recovery 移植） | `selfmod/` |
 
 关键入口：`createMiraContext()`（`framework/services.ts`）装配全部服务；`setupSelfModification()`（`selfmod/index.ts`）启用运行期自修改；`Agent.setMiraContext(ctx)` 让 Agent 循环获得插件扩展点（向后兼容，未注入时行为不变）。详细对标分析见 `docs/plugin-framework-comparison.md`。
 
@@ -687,6 +690,12 @@ Phase 驱动的软件开发工作流（`compose-mode.ts`）：`plan → execute 
 
 ### LSP（Language Server Protocol）
 代码智能：定义跳转、引用查找、悬停、文件符号大纲、实现查找。手写 JSON-RPC over stdio 客户端（Content-Length 帧解析），支持 server→client 请求/通知分发。`server-defs.ts` 声明式定义语言服务器（当前内置 TypeScript，可扩展），`dependency.ts` 自动解析依赖（系统 PATH → 本地缓存 `userData/lsp/<id>/` → 白名单版本锁定自动安装），`indexing.ts` 追踪 `$/progress` 索引进度（跨文件查询前等待索引就绪），`diagnostic-check.ts` 提供编辑前后诊断对比（edit_file 写入后自动自检并返回新增错误/警告）。
+
+### 桌面运维韧性（崩溃恢复三件套）
+借鉴 DSH desktop 的运维韧性设计，落地三件套（`docs/plans/2026-08-20-desktop-resilience.md`）：
+- **插件激活 WAL**：`selfmod/recovery.ts` `PluginRecoveryStore` 相位状态机（prepared→awaiting-restart→verified / rolled-back，非法转移抛错），`runner.run` 事务化（begin→失败 recover / 成功 seal→markHealthy→clear），sidecar 启动 `recoverPending` 处理崩溃残留（last-known-good 恢复：`restoreFromStorage` → 按 prev 版本重新激活，无 prev 则标记 interrupted-install）
+- **崩溃证据**：`system/crash-evidence.ts` active-run 标记（原子写 + ownerId 保护 + 符号链接防护），sidecar 启动写/退出清（win32 下 taskkill /F 无 exit 事件，main `before-quit` 兜底 `clearCrashMarker`），main 启动时读残留判定上次异常退出
+- **启动健康检查**：`system/health.ts` `waitForHealth` 轮询 + `rendererBootWindow` 判定；`/api/health` 报告 `version` + `selfmodPending`；renderer boot 窗口（`ipc/renderer-boot.ts`）：主窗口加载 30s 未上报就绪弹恢复提示（relaunch+exit 配对），hide/show 生命周期 dispose/rearm
 
 ### ACP（Agent Communication Protocol）
 `orchestrate/acp/`：标准化的 Agent 间通信协议，含消息类型（13 个 `create*` 消息工厂 + 9 个消息工具函数，共 22 个导出）、`WorkStateMachine` 工作状态机 + 全局单例。
@@ -824,7 +833,7 @@ pnpm package:mac    # macOS
 pnpm package:linux  # Linux
 
 # 测试
-pnpm test           # Vitest 4（当前基线：87 个测试文件，774 个通过用例）
+pnpm test           # Vitest 4（当前基线：90 个测试文件，780 个通过用例；14 failed 为预先存在的 catalog 缺失）
 
 # 类型检查
 pnpm typecheck

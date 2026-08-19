@@ -4,6 +4,7 @@ import * as path from "path";
 import { getMainWindow, minimizeWindow, toggleMaximizeWindow, hideWindow } from "../managers/window-manager";
 import { registerAgentIPCHandlers } from "./index";
 import { getFloatingBallManager } from "../managers/floating-ball-manager";
+import { notifyRendererBooted } from "./renderer-boot";
 import { createAttachmentSelection, assertAttachmentBudget, readAttachment, releaseAttachmentSelection } from "../main/attachment-picker";
 
 export function registerIPCHandlers(): void {
@@ -13,6 +14,11 @@ export function registerIPCHandlers(): void {
   ipcMain.on("window:minimize", () => minimizeWindow());
   ipcMain.on("window:maximize", () => toggleMaximizeWindow());
   ipcMain.on("window:close", () => hideWindow());
+
+  // 渲染层首帧就绪上报（取消 boot 超时恢复提示）
+  ipcMain.on("mira:renderer-boot", () => {
+    notifyRendererBooted();
+  });
 
   // 文件对话框
   ipcMain.handle("dialog:openDirectory", async () => {

@@ -9,6 +9,7 @@ import * as crypto from "crypto"
 import * as fs from "fs"
 import * as pathLib from "path"
 import { getPlatformPaths } from "../../config/paths"
+import { pluginRecoveryStore } from "../../selfmod"
 
 import {
   handleStartStream,
@@ -240,7 +241,14 @@ async function routeRequest(
   switch (path) {
     // ── Health ──
     case "/api/health": {
-      jsonResponse(res, 200, { status: "ok", timestamp: Date.now() })
+      // 报告核心就绪 + selfmod 恢复事务数（供 main 判定启动健康）
+      const pending = await pluginRecoveryStore.pending().catch(() => [])
+      jsonResponse(res, 200, {
+        status: "ok",
+        version: process.env.MIRA_VERSION || "dev",
+        selfmodPending: pending.length,
+        timestamp: Date.now(),
+      })
       return
     }
 
