@@ -25,6 +25,16 @@ import type {
   CreateAgentOptions,
   ResumeAgentOptions,
 } from "../services/agents"
+import type { WorkflowDefinition, WorkflowRunOptions, WorkflowResult } from "../workflow/index"
+import type { CodingState, CodingTaskOptions } from "../graph/templates/coding-task"
+import type { SubagentInfo, SubagentEvent } from "../orchestrate/subagent"
+import type { Goal, GoalConfig, GoalEvaluation } from "../orchestrate/goal-judge"
+import type { DreamResult, KnowledgeEntry, GraphStore } from "../orchestrate/dream-types"
+import type { ComposePhase, ComposeState, ComposeSkill } from "../compose-mode"
+import type { BackgroundStatus, BackgroundTask } from "../background/index"
+import type { Task, TaskStatus } from "../task/tracker"
+import type { VoiceEngineDef, VoiceEngineKind } from "../voice/types"
+import type { LSPServerManager } from "../lsp/manager"
 
 declare module "../vendor/cordis/context" {
   interface Context {
@@ -57,6 +67,30 @@ declare module "../vendor/cordis/context" {
     systemPrompt?: SystemPromptService
     /** 当前 agent（Agent 作用域 ctx 上以 own property 覆盖，DX accessor） */
     agent?: Agent
+
+    // ── 特色功能服务（引擎持有 + 可替换，插件经 ctx 寻址） ──
+    /** Dynamic Workflow 编排引擎 */
+    workflow?: WorkflowService
+    /** Graph 图编排引擎（coding-task 模板运行 + 运行状态） */
+    graph?: GraphService
+    /** 组合模式（phase 驱动工作流） */
+    compose?: ComposeService
+    /** 子 Agent 管理（Actor 模型） */
+    subagent?: SubagentService
+    /** Goal 完成度验证（GoalJudge） */
+    goal?: GoalService
+    /** Dream/Distill 记忆进化 */
+    dream?: DreamService
+    /** LSP 代码智能（Language Server 生命周期 + 查询） */
+    lsp?: LSPService
+    /** Skill 系统（扫描/加载，目录可配置） */
+    skill?: SkillService
+    /** 后台任务队列 + 定时调度 + 完成通知 */
+    background?: BackgroundService
+    /** 任务追踪 + 规划（TaskTracker/TaskPlanner 单一寻址） */
+    task?: TaskService
+    /** 语音引擎目录 + 引擎工厂（VoiceRegistry 服务视图） */
+    voice?: VoiceService
 
     // ── Capability Seams（Definition 持 Provider，可替换） ──
     /** 文件系统缝：ctx.fs.setProvider(remoteFs) 换整个产品 */
@@ -158,10 +192,17 @@ export interface SessionService {
   deleteSession(id: string): Promise<void>
 }
 
-/** 记忆服务：全文搜索 + 写入 */
+/** 记忆服务：全文搜索 + 写入（5 层 Provider 链在 initialize 装配，插件可 registerProvider 扩展） */
 export interface MemoryService {
+  initialize(sessionID: string, workspace: string): Promise<void>
   search(query: string, limit?: number): Promise<string>
-  remember(content: string, sessionId: string): void
+  remember(content: string, sessionId: string): Promise<void>
+  selectMemories(messages: unknown[], sessionID: string, tokenBudget?: number): Promise<string>
+  shutdown(): Promise<void>
+  /** 注册自定义记忆 Provider（插件扩展记忆来源），返回 disposer 可逆 */
+  registerProvider(provider: import("../memory/types").MemoryProvider): () => void
+  /** 获取底层 MemoryManager（Agent 构造共享，消除双实例） */
+  getManager(): import("../memory/manager").MemoryManager | null
 }
 
 /** 动态记忆图谱服务：节点/边/查询/衰减 */
@@ -199,4 +240,177 @@ export interface ConfigService {
 export interface AgentLoopService extends AgentFactory {
   setLoop(loop: import("../services/agent-loop").AgentLoopImpl): void
   getLoop(): import("../services/agent-loop").AgentLoopImpl
+}
+
+// ── 特色功能服务接口（实现于 services/ 同名文件，插件可替换实现） ──
+
+/** Workflow 服务：代码级编排引擎（持有 WorkflowEngine，setEngine 可替换） */
+export interface WorkflowService {
+  execute(workflow: WorkflowDefinition, options?: WorkflowRunOptions): Promise<{ results: WorkflowResult[]; elapsedMs: number }>
+  cancel(runId: string): boolean
+  setEngine(engine: unknown): void
+  getEngine(): import("../workflow/index").WorkflowEngine
+}
+
+/** Graph 服务：coding-task 图运行（运行状态进程内单一寻址，sidecar/api 消费） */
+export interface GraphService {
+  runCodingTask(
+    request: string,
+    config: Record<string, unknown>,
+    options: { maxSteps?: number; testCommand?: string; maxTotalTokens?: number },
+    runId: string,
+    onEvent?: (evt: unknown) => void,
+    onFinish?: {
+      onResult?(result: import("../graph/types").GraphRunResult<import("../graph/templates/coding-task").CodingState>): void
+      onEnd?(): void
+    },
+  ): void
+  getStatus(runId: string): { runId: string; active: boolean }
+  listRuns(graphId?: string): unknown[]
+  stop(runId: string): boolean
+}
+
+/** 组合模式服务：phase 驱动软件开发工作流（skills/phaseOrder 可注册替换） */
+export interface ComposeService {
+  run(spec: string, config: AgentConfig): AsyncGenerator<import("../types").AgentEvent>
+  start(spec: string): ComposeState
+  getState(): ComposeState | null
+  getCurrentSkill(): ComposeSkill | undefined
+  advance(): ComposePhase | null
+  goTo(phase: ComposePhase): void
+  update(data: Partial<ComposeState>): void
+  addCodeFile(file: string): void
+  addReviewComment(comment: string): void
+  addTestResult(result: string): void
+  addDebugLog(log: string): void
+  setVerificationPassed(passed: boolean): void
+  complete(): ComposeState | null
+  cancel(): ComposeState | null
+  getHistory(): ComposeState[]
+  toText(): string
+  toSystemPrompt(): string
+  getSkills(): Record<ComposePhase, ComposeSkill>
+  registerPhase(phase: ComposePhase, skill: ComposeSkill): () => void
+  /** 底层管理器（构造经 ctx.subagent 自动接线） */
+  getManager(): import("../compose-mode").ComposeModeManager
+}
+
+/** 子 Agent 服务：Actor 模型生命周期（持有 SubagentManager 实例） */
+export interface SubagentService {
+  spawn(
+    description: string,
+    config: AgentConfig,
+    options?: { parentId?: string; prompt?: string; model?: string; context?: "none" | "state" | "full"; mode?: "subagent" | "peer" },
+  ): SubagentInfo
+  wait(id: string, timeoutMs?: number): Promise<SubagentInfo>
+  cancel(id: string): boolean
+  getInfo(id: string): SubagentInfo | null
+  getEvents(id: string): import("../types").AgentEvent[]
+  list(filter?: { parentId?: string; status?: import("../orchestrate/subagent").SubagentStatus }): SubagentInfo[]
+  listActive(): SubagentInfo[]
+  listByParent(parentId: string): SubagentInfo[]
+  cancelAllByParent(parentId: string): void
+  cancelAll(): void
+  onEvent(callback: (event: SubagentEvent) => void): void
+  toText(): string
+  getManager(): import("../orchestrate/subagent").SubagentManager
+}
+
+/** Goal 服务：任务完成度验证（持有 GoalJudge 实例） */
+export interface GoalService {
+  setJudgeConfig(config: GoalConfig): void
+  bindSession(sessionID: string): void
+  setGoal(description: string, timeoutMs?: number): Goal
+  getActiveGoal(): Goal | null
+  getAllGoals(): Goal[]
+  cancelGoal(): boolean
+  isTimedOut(goal: Goal): boolean
+  evaluate(goal: Goal, messages: import("../llm/schema/messages").LLMMessage[], config?: GoalConfig): Promise<GoalEvaluation>
+  quickCheck(goal: Goal, messages: import("../llm/schema/messages").LLMMessage[]): GoalEvaluation | null
+  toSystemPrompt(): string
+  toText(): string
+  load(sessionID: string): Promise<void>
+  save(): Promise<void>
+  getJudge(): import("../orchestrate/goal-judge").GoalJudge
+}
+
+/** Dream/Distill 服务：记忆进化（持有 DreamDistillManager 实例） */
+export interface DreamService {
+  initialize(workspace: string): Promise<void>
+  setLLMConfig(config: import("../orchestrate/dream-types").LLMConfig): void
+  recordTurn(user: string, assistant: string): void
+  shouldAutoDream(): boolean
+  autoDream(): Promise<DreamResult | null>
+  runDream(history: import("../llm/schema/messages").LLMMessage[], config: import("../orchestrate/dream-types").LLMConfig): Promise<DreamResult>
+  distill(history: import("../llm/schema/messages").LLMMessage[], config: import("../orchestrate/dream-types").LLMConfig): Promise<unknown>
+  getKnowledge(): KnowledgeEntry[]
+  knowledgeToText(): string
+  toSystemPrompt(): string
+  toText(): string
+  getGraphData(): { entities: GraphStore["entities"]; relationships: GraphStore["relationships"] }
+  getManager(): import("../orchestrate/dream").DreamDistillManager
+}
+
+/** LSP 服务：代码智能（持有 LSPServerManager，setManager 可替换） */
+export interface LSPService {
+  getManager(): LSPServerManager
+  setManager(manager: LSPServerManager): void
+}
+
+/** Skill 服务：扫描/加载（目录可配置，插件可注册目录） */
+export interface SkillService {
+  list(): Array<{ name: string; description: string; category?: string }>
+  load(name: string): import("../skill/skill-loader").SkillContent | null
+  loadFile(name: string, filePath: string): string | null
+  getSkillDirs(): string[]
+  addSkillDir(dir: string): () => void
+}
+
+/** 后台任务服务：队列 + Cron + 完成通知（订阅者模式） */
+export interface BackgroundService {
+  start(name: string, handler: () => Promise<string>): string
+  getTaskStatus(id: string): BackgroundTask | undefined
+  list(): BackgroundTask[]
+  cleanup(olderThanMs?: number): void
+  isSlowOperation(command: string): boolean
+  schedule(cron: string, task: () => Promise<void>): string
+  unschedule(id: string): boolean
+  listCron(): import("../background/cron").CronTask[]
+  addCron(id: string, expression: string, description: string, handler: () => Promise<void>): void
+  removeCron(id: string): void
+  setNotifier(notifier: unknown): void
+}
+
+/** 任务服务：TaskTracker + TaskPlanner 单一寻址（planners 注册表从 task-tool 迁入） */
+export interface TaskService {
+  initialize(sessionId: string): void
+  create(summary: string, parentId?: string): Task
+  updateStatus(id: string, status: TaskStatus): boolean
+  updateSummary(id: string, summary: string): boolean
+  addNote(id: string, note: string): boolean
+  getTask(id: string): Task | null
+  getAllTasks(): Task[]
+  getActiveTasks(): Task[]
+  toText(): string
+  persist(): void
+  createPlan(id: string): import("../task/planner").TaskPlanner
+  definePlan(def: import("../task/planner").TaskDef): import("../task/planner").TaskPlanner
+  executePlan(id: string): Promise<import("../task/planner").TaskState[]>
+  getPlan(id: string): import("../task/planner").TaskPlanner | undefined
+  deletePlan(id: string): boolean
+  clearPlans(): void
+}
+
+/** 语音服务：VoiceRegistry 服务视图（引擎目录 + 工厂 + 会话管理） */
+export interface VoiceService {
+  initCatalog(): void
+  listCatalog(): VoiceEngineDef[]
+  getDefaults(): Partial<Record<"stt" | "tts" | "vad" | "dictation", string>>
+  setDefaults(defaults: Partial<Record<"stt" | "tts" | "vad" | "dictation", string>>): void
+  registerEngine(def: VoiceEngineDef): void
+  registerFactory(implementation: string, kind: VoiceEngineKind, factory: unknown): void
+  getSTTEngine(id?: string): unknown
+  getTTSEngine(id?: string): unknown
+  getVADEngine(id?: string): unknown
+  isInitialized(): boolean
 }

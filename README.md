@@ -56,7 +56,7 @@ mira/
 │   │   └── src/
 │   │       ├── main/                # 应用入口
 │   │       ├── preload/             # 安全桥接 (contextBridge)
-│   │       ├── ipc/                 # IPC 通信（15 个模块）
+│   │       ├── ipc/                 # IPC 通信（16 个模块）
 │   │       ├── managers/            # 窗口/托盘/悬浮球管理
 │   │       └── utils/               # 日志/环境变量
 │   │

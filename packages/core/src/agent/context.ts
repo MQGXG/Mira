@@ -31,6 +31,8 @@ export interface AgentRunConfig {
   provider?: string
   model?: string
   headers?: Record<string, string>
+  /** 作用域 Cordis Context：透传给 ToolContext.agentCtx（工具服务寻址） */
+  agentCtx?: import("../vendor/cordis/index").Context
 }
 
 // ── SourceManager 工厂 ───────────────────────────────────
@@ -84,6 +86,7 @@ export function buildToolContext(config: AgentRunConfig): ToolContext {
     model: config.model,
     headers: config.headers,
     options: config.options,
+    agentCtx: config.agentCtx,
   }
 }
 

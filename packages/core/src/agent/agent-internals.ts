@@ -33,6 +33,8 @@ export interface AgentInternals {
   contextManager: ContextManager
   goalJudge: GoalJudge
   miraCtx: MiraContext | null
+  /** 作用域 ctx（attachScope 铸造，含 agent 自身） */
+  agentCtx: MiraContext | undefined
   sourceManager: SourceManager | null
   sourceManagerSources: {
     memory: import("../session/context-source").MemorySource
@@ -44,7 +46,6 @@ export interface AgentInternals {
   _vectorProvider: VectorMemoryProvider | null
   ngramBuffer: string[]
   runTotalTokens: number
-  consecutiveToolTurns: number
   graphBatchIds: string[]
   lastGraphMaintenanceAt: number
   tokenAccumulators: Map<string, TokenUsageAccumulator>

@@ -6,6 +6,13 @@
 import { z } from "zod"
 import { make } from "../shared/tool"
 import { scanSkills, loadSkill, loadSkillFile } from "./skill-loader"
+import type { ToolContext } from "../shared/tool"
+
+/** 额外 Skill 目录：优先 ctx.agentCtx.get("skill") 服务（插件可注册目录），无 ctx 为空 */
+function skillDirs(ctx: ToolContext): string[] {
+  const svc = ctx.agentCtx?.get("skill") as { getSkillDirs(): string[] } | undefined
+  return svc?.getSkillDirs() ?? []
+}
 
 /** skills_list 工具：列出所有可用 Skill */
 export const skillsListTool = make({
@@ -15,8 +22,8 @@ export const skillsListTool = make({
     category: z.string().optional().describe("按分类筛选"),
   }),
   outputSchema: z.string(),
-  execute: async (input) => {
-    const all = scanSkills()
+  execute: async (input, ctx) => {
+    const all = scanSkills(skillDirs(ctx))
     const filtered = input.category
       ? all.filter((s) => s.category === input.category)
       : all
@@ -49,16 +56,17 @@ export const skillViewTool = make({
     file_path: z.string().optional().describe("关联文件路径（可选）"),
   }),
   outputSchema: z.string(),
-  execute: async (input) => {
+  execute: async (input, ctx) => {
+    const dirs = skillDirs(ctx)
     if (input.file_path) {
-      const content = loadSkillFile(input.name, input.file_path)
+      const content = loadSkillFile(input.name, input.file_path, dirs)
       if (!content) {
         return { success: false, error: `文件 ${input.file_path} 在 Skill ${input.name} 中不存在` }
       }
       return { success: true, output: `[${input.name}/${input.file_path}]\n\n${content}` }
     }
 
-    const skill = loadSkill(input.name)
+    const skill = loadSkill(input.name, dirs)
     if (!skill) {
       return { success: false, error: `Skill '${input.name}' 未找到。用 skills_list 查看所有可用的 Skill。` }
     }

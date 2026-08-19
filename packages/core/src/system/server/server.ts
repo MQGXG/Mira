@@ -67,6 +67,28 @@ import {
   handleGraphGetStatus,
   handleGraphListRuns,
   handleGraphStop,
+  handleComposeStart,
+  handleComposeGetState,
+  handleComposeGetCurrentSkill,
+  handleComposeAdvance,
+  handleComposeGoTo,
+  handleComposeUpdate,
+  handleComposeAddCodeFile,
+  handleComposeAddReviewComment,
+  handleComposeAddTestResult,
+  handleComposeAddDebugLog,
+  handleComposeSetVerificationPassed,
+  handleComposeComplete,
+  handleComposeCancel,
+  handleComposeGetHistory,
+  handleComposeToText,
+  handleComposeGetSkills,
+  handleComposeGetPhaseOrder,
+  handleDreamDistillDream,
+  handleDreamDistillDistill,
+  handleDreamGetKnowledge,
+  handleDreamToText,
+  handleSkillList,
   handleSelfmodListPlugins,
   handleSelfmodGetClientCode,
   handleSelfmodStatus,
@@ -137,6 +159,15 @@ interface RequestBody {
   prompt?: string
   timeoutMs?: number
   runId?: string
+  spec?: string
+  phase?: string
+  updates?: Record<string, unknown>
+  filePath?: string
+  comment?: string
+  result?: string
+  log?: string
+  passed?: boolean
+  conversationHistory?: unknown[]
 }
 
 /** 验证 auth token */
@@ -729,6 +760,132 @@ async function routeRequest(
       if (req.method !== "POST") { errorResponse(res, 405, "Method not allowed"); return }
       const body = await parseBody(req) as RequestBody
       jsonResponse(res, 200, { ok: handleGraphStop(body.runId as string) })
+      return
+    }
+
+    // ── Compose（经 ctx.compose 服务，主进程 compose-ipc 经本层代理） ──
+    case "/api/compose/start": {
+      if (req.method !== "POST") { errorResponse(res, 405, "Method not allowed"); return }
+      const body = await parseBody(req) as RequestBody
+      jsonResponse(res, 200, handleComposeStart(body.spec as string))
+      return
+    }
+    case "/api/compose/state": {
+      if (req.method !== "GET") { errorResponse(res, 405, "Method not allowed"); return }
+      jsonResponse(res, 200, handleComposeGetState())
+      return
+    }
+    case "/api/compose/currentSkill": {
+      if (req.method !== "GET") { errorResponse(res, 405, "Method not allowed"); return }
+      jsonResponse(res, 200, handleComposeGetCurrentSkill())
+      return
+    }
+    case "/api/compose/advance": {
+      if (req.method !== "POST") { errorResponse(res, 405, "Method not allowed"); return }
+      jsonResponse(res, 200, handleComposeAdvance())
+      return
+    }
+    case "/api/compose/goTo": {
+      if (req.method !== "POST") { errorResponse(res, 405, "Method not allowed"); return }
+      const body = await parseBody(req) as RequestBody
+      jsonResponse(res, 200, handleComposeGoTo(body.phase as never))
+      return
+    }
+    case "/api/compose/update": {
+      if (req.method !== "POST") { errorResponse(res, 405, "Method not allowed"); return }
+      const body = await parseBody(req) as RequestBody
+      jsonResponse(res, 200, { ok: handleComposeUpdate(body.updates as never) })
+      return
+    }
+    case "/api/compose/addCodeFile": {
+      if (req.method !== "POST") { errorResponse(res, 405, "Method not allowed"); return }
+      const body = await parseBody(req) as RequestBody
+      jsonResponse(res, 200, { ok: handleComposeAddCodeFile(body.filePath as string) })
+      return
+    }
+    case "/api/compose/addReviewComment": {
+      if (req.method !== "POST") { errorResponse(res, 405, "Method not allowed"); return }
+      const body = await parseBody(req) as RequestBody
+      jsonResponse(res, 200, { ok: handleComposeAddReviewComment(body.comment as string) })
+      return
+    }
+    case "/api/compose/addTestResult": {
+      if (req.method !== "POST") { errorResponse(res, 405, "Method not allowed"); return }
+      const body = await parseBody(req) as RequestBody
+      jsonResponse(res, 200, { ok: handleComposeAddTestResult(body.result as string) })
+      return
+    }
+    case "/api/compose/addDebugLog": {
+      if (req.method !== "POST") { errorResponse(res, 405, "Method not allowed"); return }
+      const body = await parseBody(req) as RequestBody
+      jsonResponse(res, 200, { ok: handleComposeAddDebugLog(body.log as string) })
+      return
+    }
+    case "/api/compose/setVerificationPassed": {
+      if (req.method !== "POST") { errorResponse(res, 405, "Method not allowed"); return }
+      const body = await parseBody(req) as RequestBody
+      jsonResponse(res, 200, { ok: handleComposeSetVerificationPassed(body.passed as boolean) })
+      return
+    }
+    case "/api/compose/complete": {
+      if (req.method !== "POST") { errorResponse(res, 405, "Method not allowed"); return }
+      jsonResponse(res, 200, handleComposeComplete())
+      return
+    }
+    case "/api/compose/cancel": {
+      if (req.method !== "POST") { errorResponse(res, 405, "Method not allowed"); return }
+      jsonResponse(res, 200, handleComposeCancel())
+      return
+    }
+    case "/api/compose/history": {
+      if (req.method !== "GET") { errorResponse(res, 405, "Method not allowed"); return }
+      jsonResponse(res, 200, handleComposeGetHistory())
+      return
+    }
+    case "/api/compose/toText": {
+      if (req.method !== "GET") { errorResponse(res, 405, "Method not allowed"); return }
+      jsonResponse(res, 200, { text: handleComposeToText() })
+      return
+    }
+    case "/api/compose/skills": {
+      if (req.method !== "GET") { errorResponse(res, 405, "Method not allowed"); return }
+      jsonResponse(res, 200, handleComposeGetSkills())
+      return
+    }
+    case "/api/compose/phaseOrder": {
+      if (req.method !== "GET") { errorResponse(res, 405, "Method not allowed"); return }
+      jsonResponse(res, 200, handleComposeGetPhaseOrder())
+      return
+    }
+
+    // ── Dream/Distill（经 ctx.dream 服务，主进程 dream-ipc 经本层代理） ──
+    case "/api/dream/dream": {
+      if (req.method !== "POST") { errorResponse(res, 405, "Method not allowed"); return }
+      const body = await parseBody(req) as RequestBody
+      jsonResponse(res, 200, await handleDreamDistillDream(body.conversationHistory as unknown[], body.config as never))
+      return
+    }
+    case "/api/dream/distill": {
+      if (req.method !== "POST") { errorResponse(res, 405, "Method not allowed"); return }
+      const body = await parseBody(req) as RequestBody
+      jsonResponse(res, 200, await handleDreamDistillDistill(body.conversationHistory as unknown[], body.config as never))
+      return
+    }
+    case "/api/dream/knowledge": {
+      if (req.method !== "GET") { errorResponse(res, 405, "Method not allowed"); return }
+      jsonResponse(res, 200, handleDreamGetKnowledge())
+      return
+    }
+    case "/api/dream/toText": {
+      if (req.method !== "GET") { errorResponse(res, 405, "Method not allowed"); return }
+      jsonResponse(res, 200, { text: handleDreamToText() })
+      return
+    }
+
+    // ── Skill 列表 ──
+    case "/api/skills": {
+      if (req.method !== "GET") { errorResponse(res, 405, "Method not allowed"); return }
+      jsonResponse(res, 200, handleSkillList())
       return
     }
 

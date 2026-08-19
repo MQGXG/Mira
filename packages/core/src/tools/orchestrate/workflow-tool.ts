@@ -2,7 +2,12 @@ import { z } from "zod"
 import { make } from "../../shared/tool"
 import { WorkflowEngine, type WorkflowDefinition } from "../../workflow/index"
 
+// 模块级单例仅作零插件/测试回退；有 ctx 时经 ctx.agentCtx.get("workflow") 寻址 Cordis 服务（可替换实现）
 const workflowEngine = new WorkflowEngine()
+
+interface WorkflowServiceLike {
+  execute(workflow: WorkflowDefinition, options?: { signal?: AbortSignal }): Promise<{ results: Array<{ status: string; stepName: string; elapsedMs: number; output: string; children?: Array<{ status: string; stepName: string; output: string }> }>; elapsedMs: number }>
+}
 
 export const workflowRunTool = make({
   name: "workflow_run",
@@ -29,9 +34,10 @@ export const workflowRunTool = make({
 
   async execute(input, ctx) {
     try {
-      const result = await workflowEngine.execute(input.workflow, {
-        signal: ctx.signal,
-      })
+      const svc = ctx.agentCtx?.get("workflow") as WorkflowServiceLike | undefined
+      const result = svc
+        ? await svc.execute(input.workflow, { signal: ctx.signal })
+        : await workflowEngine.execute(input.workflow, { signal: ctx.signal })
 
       const summary = result.results.map((r) => {
         const children = r.children

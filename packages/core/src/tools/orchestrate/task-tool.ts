@@ -1,12 +1,45 @@
 /**
  * 任务规划工具 — 让 Agent 可以分解复杂任务、按 DAG 依赖顺序执行
+ * planners 注册表已迁入 ctx.task 服务；有 ctx 时经 ctx.agentCtx 寻址（跨会话共享），
+ * 无 ctx（测试/零插件）回退模块级 Map。
  */
 
 import { z } from "zod"
 import { make } from "../../shared/tool"
 import { TaskPlanner } from "../../task/planner"
+import type { ToolContext } from "../../shared/tool"
 
-const planners = new Map<string, TaskPlanner>()
+const modulePlanners = new Map<string, TaskPlanner>()
+
+interface TaskServiceLike {
+  getPlan(id: string): TaskPlanner | undefined
+  createPlan(id: string): TaskPlanner
+  deletePlan(id: string): boolean
+  clearPlans(): void
+}
+
+/** 计划注册表适配器：服务版（ctx.task）/ 模块级 Map 回退 */
+function taskPlans(ctx: ToolContext): TaskServiceLike {
+  const svc = ctx.agentCtx?.get("task") as TaskServiceLike | undefined
+  if (svc) {
+    return {
+      getPlan: (id) => svc.getPlan(id),
+      createPlan: (id) => svc.createPlan(id),
+      deletePlan: (id) => svc.deletePlan(id),
+      clearPlans: () => svc.clearPlans(),
+    }
+  }
+  return {
+    getPlan: (id) => modulePlanners.get(id),
+    createPlan: (id) => {
+      const p = new TaskPlanner()
+      modulePlanners.set(id, p)
+      return p
+    },
+    deletePlan: (id) => modulePlanners.delete(id),
+    clearPlans: () => modulePlanners.clear(),
+  }
+}
 
 export const taskTool = make({
   name: "plan_task",
@@ -21,18 +54,19 @@ export const taskTool = make({
     command: z.string().optional().describe("步骤要执行的命令或代码"),
   }),
   outputSchema: z.string(),
-  execute: async (input) => {
+  execute: async (input, ctx) => {
     try {
+      const plans = taskPlans(ctx)
       if (input.action === "create") {
         const id = input.plan_id || `plan-${Date.now().toString(36)}`
-        if (planners.has(id)) {
+        if (plans.getPlan(id)) {
           return { success: false, error: `计划 "${id}" 已存在` }
         }
-        planners.set(id, new TaskPlanner())
+        plans.createPlan(id)
         return { success: true, output: `✅ 计划 "${id}" 已创建\n\n添加步骤后用 execute 执行` }
       }
 
-      const planner = input.plan_id ? planners.get(input.plan_id) : null
+      const planner = input.plan_id ? plans.getPlan(input.plan_id) : null
 
       if (input.action === "add_step") {
         if (!planner) return { success: false, error: `计划 "${input.plan_id}" 不存在` }
@@ -86,10 +120,10 @@ export const taskTool = make({
       if (input.action === "clear") {
         const id = input.plan_id || ""
         if (id) {
-          planners.delete(id)
+          plans.deletePlan(id)
           return { success: true, output: `已清除计划 "${id}"` }
         }
-        planners.clear()
+        plans.clearPlans()
         return { success: true, output: "已清除所有计划" }
       }
 

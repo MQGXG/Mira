@@ -89,9 +89,6 @@ export class Agent {
   /** 全局 Token 预算累计（跨输入队列、跨 run 持久于实例） */
   private runTotalTokens = 0
 
-  /** 连续纯工具轮次计数 — 无文本输出的工具调用轮数，超过阈值强制收敛 */
-  private consecutiveToolTurns = 0
-
   /** 同批次提取的记忆节点 id — 用于会话收尾时自动建边（co_occurred 共现） */
   private graphBatchIds: string[] = []
 
@@ -304,30 +301,44 @@ export class Agent {
       agentCtx?: MiraContext
     },
   ) {
-    this.memoryManager = deps?.memoryManager ?? new MemoryManager()
     this.miraCtx = deps?.cordisCtx ?? null
     this.id = deps?.id
     this.agentCtx = deps?.agentCtx
     this.dynamicMemory = createDynamicMemory()
     setDynamicMemoryManager(this.dynamicMemory)
+    // 记忆链：优先共享 ctx.memory 服务（5 层 provider 由服务装配，插件可扩展）；
+    // 无 ctx 时保留构造注入/自建（向后兼容测试与零插件运行）
+    const memoryService = this.miraCtx?.get("memory") as
+      | { getManager(): MemoryManager | null }
+      | undefined
+    this.memoryManager = deps?.memoryManager ?? memoryService?.getManager() ?? new MemoryManager()
     this.checkpointProvider = deps?.checkpointProvider ?? new CheckpointProvider()
-    this.dreamDistillManager = deps?.dreamDistillManager ?? new DreamDistillManager()
+    // Goal 判定器 / Dream 管理器：经 ctx.goal / ctx.dream 服务共享实例（消除 sidecar 双实例根源）
+    const goalService = this.miraCtx?.get("goal") as { getJudge(): GoalJudge } | undefined
+    const dreamService = this.miraCtx?.get("dream") as { getManager(): DreamDistillManager } | undefined
+    this.dreamDistillManager = deps?.dreamDistillManager ?? dreamService?.getManager() ?? new DreamDistillManager()
     this.contextManager = deps?.contextManager ?? new ContextManager(this.checkpointProvider, this.memoryManager)
-    this.goalJudge = deps?.goalJudge ?? new GoalJudge()
+    this.goalJudge = deps?.goalJudge ?? goalService?.getJudge() ?? new GoalJudge()
     this.approvalStore = new ApprovalStore()
     this.orchestrator = deps?.orchestrator ?? new ToolOrchestrator(
       registry,
       workspace ? { persistDir: join(workspace, ".task_outputs", "tool-results") } : undefined,
     )
-    const ftsProvider = deps?.ftsProvider ?? new FTSMemoryProvider()
-    this.memoryManager.addProvider(new BuiltinMemoryProvider())
-    this.memoryManager.addProvider(this.checkpointProvider)
-    if (workspace) {
-      this.memoryManager.addProvider(new FileMemoryProvider())
-      this.memoryManager.addProvider(ftsProvider)
+    // 仅当未共享 ctx.memory 的 manager 时才自建 provider 链（ctx 链已由服务装配，避免重复添加）
+    if (!memoryService?.getManager()) {
+      const ftsProvider = deps?.ftsProvider ?? new FTSMemoryProvider()
+      this.memoryManager.addProvider(new BuiltinMemoryProvider())
+      this.memoryManager.addProvider(this.checkpointProvider)
+      if (workspace) {
+        this.memoryManager.addProvider(new FileMemoryProvider())
+        this.memoryManager.addProvider(ftsProvider)
+      }
+      this.checkpointProvider.setFTSProvider(ftsProvider)
+      setFTSProvider(ftsProvider)
+    } else if (deps?.ftsProvider) {
+      // ctx 链已装配 fts；显式注入的 fts 仅做模块级桥接
+      setFTSProvider(deps.ftsProvider)
     }
-    this.checkpointProvider.setFTSProvider(ftsProvider)
-    setFTSProvider(ftsProvider)
 
     // 注册默认 stop hooks
     registerStopHook(autoDreamHook)
@@ -493,7 +504,6 @@ export class Agent {
       let step = 0
       let hasLastAssistant = false
       const allToolCalls: Array<{ name: string; args: string }> = []
-      this.consecutiveToolTurns = 0
       // 全局 Token 预算累计（跨输入队列）
       const maxTotalTokens = config.maxTotalTokens || 0
       let totalTokensUsed = this.runTotalTokens

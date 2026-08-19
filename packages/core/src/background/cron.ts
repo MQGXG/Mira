@@ -5,15 +5,17 @@
 
 import { backgroundNotifier, setBackgroundNotifier } from "./index"
 
-type CronTask = {
+export type CronTask = {
   id: string
   expression: string
   description: string
-  handler: () => Promise<void>
   lastRun: number
   nextRun: number
   enabled: boolean
 }
+
+/** 内部任务（含 handler，不对外暴露） */
+type CronTaskInternal = CronTask & { handler: () => Promise<void> }
 
 /** 简易 cron 表达式解析（支持分 时 日 月 周） */
 function parseCron(expr: string): { minute: number[]; hour: number[]; dayOfMonth: number[]; month: number[]; dayOfWeek: number[] } {
@@ -71,7 +73,7 @@ function nextCronTime(expr: { minute: number[]; hour: number[]; dayOfMonth: numb
 }
 
 export class CronScheduler {
-  private tasks = new Map<string, CronTask>()
+  private tasks = new Map<string, CronTaskInternal>()
   private timer: ReturnType<typeof setInterval> | null = null
   private running = false
 
@@ -92,8 +94,8 @@ export class CronScheduler {
     this.tasks.delete(id)
   }
 
-  /** 列出所有任务 */
-  list(): { id: string; expression: string; description: string; lastRun: number; nextRun: number; enabled: boolean }[] {
+  /** 列出所有任务（公开视图，不含 handler） */
+  list(): CronTask[] {
     return Array.from(this.tasks.values()).map(({ handler, ...rest }) => rest)
   }
 

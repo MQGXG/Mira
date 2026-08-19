@@ -1,64 +1,70 @@
 import { ipcMain } from "electron"
-import { ComposeModeManager, type ComposePhase, type ComposeState } from "@mira/core"
+import { getServerManager } from "./sidecar-bridge"
+import type { ComposePhase, ComposeState } from "@mira/core"
 
-const composeModeManager = new ComposeModeManager()
+/** 组合模式 IPC — 全部经 sidecar HTTP 代理到 ctx.compose 服务（消除主进程双实例） */
+function sm() {
+  const m = getServerManager()
+  if (!m) throw new Error("Sidecar not started")
+  return m
+}
 
 export function registerComposeIPC(): void {
-  ipcMain.handle("compose:start", (_, spec: string) => {
-    return composeModeManager.start(spec)
+  ipcMain.handle("compose:start", async (_, spec: string) => {
+    return (await sm().request("POST", "/api/compose/start", { spec })) as ComposeState
   })
-  ipcMain.handle("compose:getState", () => {
-    return composeModeManager.getState()
+  ipcMain.handle("compose:getState", async () => {
+    return (await sm().request("GET", "/api/compose/state")) as ComposeState | null
   })
-  ipcMain.handle("compose:getCurrentSkill", () => {
-    return composeModeManager.getCurrentSkill()
+  ipcMain.handle("compose:getCurrentSkill", async () => {
+    return (await sm().request("GET", "/api/compose/currentSkill")) as unknown
   })
-  ipcMain.handle("compose:advance", () => {
-    return composeModeManager.advance()
+  ipcMain.handle("compose:advance", async () => {
+    return (await sm().request("POST", "/api/compose/advance")) as unknown
   })
-  ipcMain.handle("compose:goTo", (_, phase: ComposePhase) => {
-    return composeModeManager.goTo(phase)
+  ipcMain.handle("compose:goTo", async (_, phase: ComposePhase) => {
+    return (await sm().request("POST", "/api/compose/goTo", { phase })) as unknown
   })
-  ipcMain.handle("compose:update", (_, updates: Partial<ComposeState>) => {
-    composeModeManager.update(updates)
+  ipcMain.handle("compose:update", async (_, updates: Partial<ComposeState>) => {
+    await sm().request("POST", "/api/compose/update", { updates })
     return true
   })
-  ipcMain.handle("compose:addCodeFile", (_, filePath: string) => {
-    composeModeManager.addCodeFile(filePath)
+  ipcMain.handle("compose:addCodeFile", async (_, filePath: string) => {
+    await sm().request("POST", "/api/compose/addCodeFile", { filePath })
     return true
   })
-  ipcMain.handle("compose:addReviewComment", (_, comment: string) => {
-    composeModeManager.addReviewComment(comment)
+  ipcMain.handle("compose:addReviewComment", async (_, comment: string) => {
+    await sm().request("POST", "/api/compose/addReviewComment", { comment })
     return true
   })
-  ipcMain.handle("compose:addTestResult", (_, result: string) => {
-    composeModeManager.addTestResult(result)
+  ipcMain.handle("compose:addTestResult", async (_, result: string) => {
+    await sm().request("POST", "/api/compose/addTestResult", { result })
     return true
   })
-  ipcMain.handle("compose:addDebugLog", (_, log: string) => {
-    composeModeManager.addDebugLog(log)
+  ipcMain.handle("compose:addDebugLog", async (_, log: string) => {
+    await sm().request("POST", "/api/compose/addDebugLog", { log })
     return true
   })
-  ipcMain.handle("compose:setVerificationPassed", (_, passed: boolean) => {
-    composeModeManager.setVerificationPassed(passed)
+  ipcMain.handle("compose:setVerificationPassed", async (_, passed: boolean) => {
+    await sm().request("POST", "/api/compose/setVerificationPassed", { passed })
     return true
   })
-  ipcMain.handle("compose:complete", () => {
-    return composeModeManager.complete()
+  ipcMain.handle("compose:complete", async () => {
+    return (await sm().request("POST", "/api/compose/complete")) as unknown
   })
-  ipcMain.handle("compose:cancel", () => {
-    return composeModeManager.cancel()
+  ipcMain.handle("compose:cancel", async () => {
+    return (await sm().request("POST", "/api/compose/cancel")) as unknown
   })
-  ipcMain.handle("compose:getHistory", () => {
-    return composeModeManager.getHistory()
+  ipcMain.handle("compose:getHistory", async () => {
+    return (await sm().request("GET", "/api/compose/history")) as ComposeState[]
   })
-  ipcMain.handle("compose:toText", () => {
-    return composeModeManager.toText()
+  ipcMain.handle("compose:toText", async () => {
+    return ((await sm().request("GET", "/api/compose/toText")) as { text: string }).text
   })
-  ipcMain.handle("compose:getSkills", () => {
-    return ComposeModeManager.getSkills()
+  ipcMain.handle("compose:getSkills", async () => {
+    return (await sm().request("GET", "/api/compose/skills")) as Array<{ name: string; description: string; phase: string; tools: string[] }>
   })
-  ipcMain.handle("compose:getPhaseOrder", () => {
-    return ComposeModeManager.getPhaseOrder()
+  ipcMain.handle("compose:getPhaseOrder", async () => {
+    return (await sm().request("GET", "/api/compose/phaseOrder")) as string[]
   })
 }

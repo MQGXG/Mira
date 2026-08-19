@@ -170,6 +170,28 @@ export class ComposeModeManager {
   private subagentManager: SubagentManager | null = null
   private agentConfig: AgentConfig | null = null
   private subagentIds: string[] = []
+  /** phase skill 表（默认内置，registerPhase/构造注入可扩展替换） */
+  private skills: Record<ComposePhase, ComposeSkill>
+  /** phase 顺序（默认内置，构造可注入自定义流程） */
+  private phaseOrder: ComposePhase[]
+
+  constructor(options?: { skills?: Partial<Record<ComposePhase, ComposeSkill>>; phaseOrder?: ComposePhase[] }) {
+    this.skills = { ...COMPOSE_SKILLS, ...(options?.skills || {}) }
+    this.phaseOrder = options?.phaseOrder || PHASE_ORDER
+  }
+
+  /**
+   * 注册/替换 phase skill（Cordis 插件式：返回 disposer 可逆）。
+   * 自定义 phase 可通过构造器 phaseOrder 注入参与流程。
+   */
+  registerPhase(phase: ComposePhase, skill: ComposeSkill): () => void {
+    const prev = this.skills[phase]
+    this.skills[phase] = skill
+    return () => {
+      if (prev) this.skills[phase] = prev
+      else delete this.skills[phase]
+    }
+  }
 
   setCheckpointProvider(provider: CheckpointProvider): void {
     this.checkpointProvider = provider
@@ -177,6 +199,11 @@ export class ComposeModeManager {
 
   setSubagentManager(manager: SubagentManager): void {
     this.subagentManager = manager
+  }
+
+  /** 已接线的 SubagentManager（可空）：服务装配经 ctx.subagent 注入 */
+  getSubagentManager(): SubagentManager | null {
+    return this.subagentManager
   }
 
   setAgentConfig(config: AgentConfig): void {
@@ -191,10 +218,10 @@ export class ComposeModeManager {
     this.startFromParsed(parsedSpec)
     yield { type: "thinking", text: `📋 Starting compose: ${parsedSpec.title} — phase: plan` }
 
-    for (const phase of PHASE_ORDER) {
+    for (const phase of this.phaseOrder) {
       if (this.state) this.state.phase = phase
 
-      const skill = COMPOSE_SKILLS[phase]
+      const skill = this.skills[phase]
       const phasePrompt = this.buildPhasePrompt(skill)
       yield { type: "thinking", text: `🔄 Entering phase: ${phase} — ${skill.description}` }
 
@@ -224,7 +251,7 @@ export class ComposeModeManager {
     prompt: string,
     config: AgentConfig,
   ): Promise<{ status: "completed" | "failed"; output?: string; error?: string }> {
-    const skill = COMPOSE_SKILLS[phase]
+    const skill = this.skills[phase]
 
     const phaseConfig: AgentConfig = {
       ...config,
@@ -347,20 +374,20 @@ export class ComposeModeManager {
 
   getCurrentSkill(): ComposeSkill | null {
     if (!this.state) return null
-    return COMPOSE_SKILLS[this.state.phase]
+    return this.skills[this.state.phase]
   }
 
   advance(): ComposePhase | null {
     if (!this.state) return null
-    const currentIdx = PHASE_ORDER.indexOf(this.state.phase)
-    if (currentIdx === PHASE_ORDER.length - 1) return null
-    this.state.phase = PHASE_ORDER[currentIdx + 1]
+    const currentIdx = this.phaseOrder.indexOf(this.state.phase)
+    if (currentIdx === this.phaseOrder.length - 1) return null
+    this.state.phase = this.phaseOrder[currentIdx + 1]
     this.state.updatedAt = new Date().toISOString()
     return this.state.phase
   }
 
   goTo(phase: ComposePhase): boolean {
-    if (!this.state || !PHASE_ORDER.includes(phase)) return false
+    if (!this.state || !this.phaseOrder.includes(phase)) return false
     this.state.phase = phase
     this.state.updatedAt = new Date().toISOString()
     return true
@@ -473,6 +500,11 @@ export class ComposeModeManager {
 
   static getPhaseOrder(): ComposePhase[] {
     return [...PHASE_ORDER]
+  }
+
+  /** 实例级 phase skill 表（含 registerPhase 扩展，服务寻址用） */
+  getSkillsMap(): Record<ComposePhase, ComposeSkill> {
+    return { ...this.skills }
   }
 }
 

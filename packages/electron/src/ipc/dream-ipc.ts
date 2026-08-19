@@ -1,27 +1,29 @@
 import { ipcMain } from "electron"
-import { DreamDistillManager } from "@mira/core"
+import { getServerManager } from "./sidecar-bridge"
 import type { LLMMessage } from "@mira/core"
 
-const dreamDistillManager = new DreamDistillManager()
+/** Dream/Distill IPC — 经 sidecar HTTP 代理到 ctx.dream 服务（消除主进程双实例） */
+function sm() {
+  const m = getServerManager()
+  if (!m) throw new Error("Sidecar not started")
+  return m
+}
 
 export function registerDreamIPC(): void {
   ipcMain.handle("dreamDistill:dream", async (_, conversationHistory: LLMMessage[], config: { apiKey: string; apiUrl: string; model: string; provider: string }) => {
-    await dreamDistillManager.initialize(config.apiUrl || process.cwd())
-    return await dreamDistillManager.runDream(conversationHistory, config)
+    return (await sm().request("POST", "/api/dream/dream", { conversationHistory, config })) as unknown
   })
   ipcMain.handle("dreamDistill:distill", async (_, conversationHistory: LLMMessage[], config: { apiKey: string; apiUrl: string; model: string; provider: string }) => {
-    await dreamDistillManager.initialize(config.apiUrl || process.cwd())
-    return (await dreamDistillManager.distill(conversationHistory, config)) as {
+    return (await sm().request("POST", "/api/dream/distill", { conversationHistory, config })) as {
       timestamp: string
       workflowsFound: unknown[]
       summary: string
     }
   })
-  ipcMain.handle("dreamDistill:getKnowledge", () => {
-    return dreamDistillManager.getKnowledge()
+  ipcMain.handle("dreamDistill:getKnowledge", async () => {
+    return (await sm().request("GET", "/api/dream/knowledge")) as unknown[]
   })
-  ipcMain.handle("dreamDistill:toText", () => {
-    return dreamDistillManager.toText()
+  ipcMain.handle("dreamDistill:toText", async () => {
+    return ((await sm().request("GET", "/api/dream/toText")) as { text: string }).text
   })
 }
-

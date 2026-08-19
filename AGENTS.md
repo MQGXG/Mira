@@ -29,12 +29,12 @@ mira/
 ├── packages/
 │   ├── core/                        # @mira/core — Agent Core 核心逻辑
 │   │   └── src/
-│   │       ├── index.ts             # 统一导出（~240 行公共 API 面）
+│   │       ├── index.ts             # 统一导出（~335 行公共 API 面）
 │   │       ├── types.ts             # AgentEvent 类型（15 种事件变体）
 │   │       ├── compose-mode.ts      # 组合模式（phase 驱动的软件开发工作流）
 │   │       ├── agent/               # Agent 核心子模块
 │   │       │   ├── index.ts
-│   │       │   ├── agent.ts         #   Agent 主编排（~502行，输入队列 + 内层 ReAct 循环）
+│   │       │   ├── agent.ts         #   Agent 主编排（~695行，输入队列 + 内层 ReAct 循环）
 │   │       │   ├── stages.ts        #   5 阶段拆分（prepare/restore/buildMessages/handleTurn/finalize + 辅助）
 │   │       │   ├── agent-internals.ts#  AgentInternals 依赖契约（循环插件化替换边界）
 │   │       │   ├── constants.ts     #   AgentConfig + DEFAULT_SYSTEM
@@ -48,6 +48,7 @@ mira/
 │   │       │   ├── text-ngram.ts    #   文本 N-gram 流式重复检测
 │   │       │   ├── input-queue.ts   #   PendingInputQueue（FIFO + steer 优先）
 │   │       │   ├── stop-hooks.ts    #   停止钩子（autoDream + memoryPromote 内置钩子）
+│   │       │   ├── convergence-guard.ts # 回合级收敛保护（连续搜索/工具调用上限，agent/step-end 接缝）
 │   │       │   ├── run-coordinator.ts# Run 协调器（coalesced wakeup / interrupt）
 │   │       │   ├── session-restore.ts# 会话恢复（与 agent.ts 私有实现平行）
 │   │       │   ├── system-context.ts#   系统级上下文（增量 Source + 快照）
@@ -86,7 +87,7 @@ mira/
 │   │       │       └── client.ts    #   路由客户端实现（敏感字段脱敏）
 │   │       ├── config/              # 配置模块
 │   │       │   ├── index.ts         #   MiraConfig 加载（全局/项目/env 深合并 + {env}/{file} 替换）
-│   │       │   ├── flags.ts         #   特性开关（12 个默认 flag，localStorage 持久化）
+│   │       │   ├── flags.ts         #   特性开关（13 个默认 flag，localStorage 持久化）
 │   │       │   ├── modes.ts         #   Agent 模式定义（5 种内置）
 │   │       │   ├── paths.ts         #   跨平台路径
 │   │       │   ├── profile.ts       #   Agent 配置（AgentProfileRegistry，JSON 可序列化）
@@ -99,7 +100,7 @@ mira/
 │   │       │   ├── tool-materializer.ts# 物化 + JSON Schema 转换 + 模型过滤
 │   │       │   ├── tool-scope.ts    #   作用域工具注册表（application/session/mode 等）
 │   │       │   ├── mcp-plugin-registry.ts# MCP/Plugin 生命周期管理
-│   │       │   ├── registry-init.ts #   注册表初始化（48 个默认工具）
+│   │       │   ├── registry-init.ts #   注册表初始化（63 个默认工具：56 基础 + 7 officecli 条件注册）
 │   │       │   ├── server-manager.ts#   服务器管理器（子进程 HTTP + SSE 桥接）
 │   │       │   ├── permission/      #   权限子模块
 │   │       │   │   ├── index.ts     #     PermissionSet（通配符匹配 + 硬拒绝列表）
@@ -174,7 +175,7 @@ mira/
 │   │       │   └── acp/             #   Agent Communication Protocol
 │   │       │       ├── index.ts
 │   │       │       ├── types.ts     #     ACP 类型
-│   │       │       ├── message.ts   #     消息工厂（20 个工厂函数）
+│   │       │       ├── message.ts   #     消息工厂（13 个 create* 工厂 + 9 个消息工具函数）
 │   │       │       └── work-state-machine.ts # 工作状态机
 │   │       ├── graph/               # Graph Engineering 图编排引擎（Planner/Runtime/Recovery 三层分离）
 │   │       │   ├── index.ts         #   统一导出（StateGraph/Planner/Recovery/模板）
@@ -202,7 +203,7 @@ mira/
 │   │       │   ├── skill-loader.ts  #   动态加载（frontmatter 解析）
 │   │       │   ├── skill-commands.ts#   Slash 命令匹配
 │   │       │   └── skill-tools.ts   #   Skill 工具（skills_list / skill_view）
-│   │       ├── tools/               # 工具层（48 个默认注册工具）
+│   │       ├── tools/               # 工具层（63 个默认注册工具）
 │   │       │   ├── index.ts         #   导出所有工具
 │   │       │   ├── core/            #   文件/代码工具（read/write/edit/grep/glob/git/apply_patch/docx/xlsx/pptx/svg/webpage/mockup/todo/change-directory/get-current-time/session-cwd/search-history）
 │   │       │   ├── execution/       #   执行工具（bash/run_code/image_generate）
@@ -210,6 +211,7 @@ mira/
 │   │       │   ├── orchestrate/     #   编排工具（agent-tools/delegate-task/team-tool/task-tool/cron-tool/worktree-tool/workflow-tool）
 │   │       │   ├── infra/           #   基础设施（lsp-tool）
 │   │       │   ├── interaction/     #   交互工具（question）
+│   │       │   ├── office/          #   OfficeCLI 工具（officecli_* 7 个，条件注册）
 │   │       │   └── shared/          #   工具共享（tool-loader/tool-meta/tool-output-store）
 │   │       ├── lsp/                 # LSP 代码智能
 │   │       │   ├── client.ts        #   LSP 客户端（JSON-RPC over stdio + Content-Length 帧解析 + 通知/请求分发）
@@ -252,10 +254,23 @@ mira/
 │   │       │   ├── tools.ts          #   ctx.tools（注册/物化/ScopedToolRegistry 作用域/执行）
 │   │       │   ├── permissions.ts    #   ctx.permissions（allow/deny/ask 三层 Gate）
 │   │       │   ├── sessions.ts       #   ctx.sessions（会话 CRUD）
-│   │       │   ├── memory.ts / dynamic-memory.ts # ctx.memory（6 层 Provider）/ ctx.dynamicMemory（图谱）
+│   │       │   ├── memory.ts / dynamic-memory.ts # ctx.memory（5 层 Provider 服务装配 + registerProvider 可逆扩展）/ ctx.dynamicMemory（图谱）
 │   │       │   ├── mcp.ts            #   ctx.mcp（MCP 连接管理）
 │   │       │   ├── capability.ts     #   ctx.fs/subprocess/shell（Capability Seams，setProvider 换产品）
-│   │       │   └── agent-loop.ts     #   ctx.agentLoop（AgentLoopImpl + setLoop 可替换循环）
+│   │       │   ├── agents.ts         #   ctx.agents（Agent 实时注册表，对齐 dsh AgentRegistry）
+│   │       │   ├── system-prompt.ts  #   ctx.systemPrompt（系统提示模板/变量/工具注入）
+│   │       │   ├── agent-loop.ts     #   ctx.agentLoop（AgentLoopImpl + setLoop 可替换循环）
+│   │       │   ├── workflow.ts       #   ctx.workflow（持有 WorkflowEngine，setEngine 可替换）
+│   │       │   ├── skill.ts          #   ctx.skill（addSkillDir 插件目录，disposer 可逆）
+│   │       │   ├── lsp.ts            #   ctx.lsp（持有 LSPServerManager，setManager 可替换）
+│   │       │   ├── background.ts     #   ctx.background（队列 + cronScheduler + 通知，生命周期启停）
+│   │       │   ├── task.ts           #   ctx.task（TaskTracker + TaskPlanner 注册表迁入）
+│   │       │   ├── goal.ts           #   ctx.goal（持有 GoalJudge，Agent 构造共享）
+│   │       │   ├── dream.ts          #   ctx.dream（持有 DreamDistillManager，Agent 构造共享）
+│   │       │   ├── subagent.ts       #   ctx.subagent（经 ctx.tools 解析 registry + setCordisContext）
+│   │       │   ├── compose.ts        #   ctx.compose（构造自动接线 setSubagentManager，registerPhase 可逆）
+│   │       │   ├── graph.ts          #   ctx.graph（activeGraphRuns 从 api.ts 迁入，SSE onResult/onEnd）
+│   │       │   └── voice.ts          #   ctx.voice（VoiceRegistry 服务视图 + initCatalog 三层合并）
 │   │       ├── selfmod/              # 运行期自修改（"一切皆插件"终局：Agent 定义/激活/卸载插件）
 │   │       │   ├── index.ts          #   setupSelfModification 装配 + 导出
 │   │       │   ├── sandbox.ts        #   VM 沙箱（预检 + 超时 + Node API 重定向 + 受限 ctx）
@@ -263,16 +278,21 @@ mira/
 │   │       │   ├── runner.ts         #   生命周期（define/run/stop/undefine + 审批门 + 持久化）
 │   │       │   ├── storage.ts        #   SQLite 持久化（重启恢复）
 │   │       │   └── tools.ts          #   mira_plugin_define/run/stop/undefine/list/inspect
+│   │       ├── capability/            # 能力缝（Capability Seams：fs/subprocess/shell/code-runtime/sandbox/office，setProvider 换产品）
+│   │       ├── invariants/            # 运行期契约校验（InvariantRegistry，事件数据关系一致性，默认 flag 关闭）
+│   │       ├── scope/                 # 作用域上下文原语（dsh-scope 移植：createScope/scopeTarget，Agent 作用域注册）
+│   │       ├── assets/                # 内置数据（models-pricing.json 定价表 + tool-catalog.json 工具目录）
 │   │       ├── types/ambient.d.ts   # 全局类型声明
-│   │       └── __tests__/           # Core 测试；完整基线为 84 个测试文件、759 个通过用例
+│   │       └── __tests__/           # Core 测试；完整基线为 87 个测试文件、774 个通过用例
 │   │
 │   ├── electron/                    # @mira/electron — Electron 主进程
 │   │   └── src/
 │   │       ├── index.ts             # 统一导出
 │   │       ├── ambient.d.ts
 │   │       ├── main/index.ts        # 应用入口（GPU 开关 + sidecar 启动 + 全局快捷键）
+│   │       ├── main/attachment-picker.ts # 附件选择（拖拽/粘贴 File → 路径 token 解析）
 │   │       ├── preload/index.ts     # 预加载脚本 (contextBridge)
-│   │       ├── ipc/                 # IPC 通信层（15 个模块，~98 个 handler）
+│   │       ├── ipc/                 # IPC 通信层（16 个模块，~103 个 handler）
 │   │       │   ├── index.ts         #   统一注册
 │   │       │   ├── handlers.ts      #   窗口/对话框/安全存储 handler
 │   │       │   ├── compose-ipc.ts   #   组合模式
@@ -283,6 +303,7 @@ mira/
 │   │       │   ├── live2d-ipc.ts    #   Live2D 桌宠开关
 │   │       │   ├── memory-ipc.ts    #   记忆操作（代理到 sidecar HTTP）
 │   │       │   ├── question-ipc.ts  #   用户交互
+│   │       │   ├── selfmod-ipc.ts   #   运行期自修改（插件状态/client 代码）
 │   │       │   ├── session-ipc.ts   #   会话/项目 CRUD
 │   │       │   ├── sidecar-bridge.ts#   Sidecar 进程通信（SSE 桥接）
 │   │       │   ├── skill-ipc.ts     #   Skill 加载
@@ -335,6 +356,7 @@ mira/
 │           │   └── __tests__/       #   follow-up-suggestions / zod-schema 测试
 │           ├── components/          # 组件
 │           │   ├── ErrorBoundary.tsx
+│           │   ├── CommandPalette.tsx # 命令面板（斜杠命令/快捷操作）
 │           │   ├── assistant-ui/    #   assistant-ui 扩展组件
 │           │   │   ├── markdown-text.tsx
 │           │   │   ├── reasoning.tsx
@@ -364,6 +386,8 @@ mira/
 │           │   ├── MemoryGraph.tsx  #     3D 力导向图谱组件
 │           │   ├── GraphPanel.tsx   #     图谱全屏面板
 │           │   └── graph-data.ts    #     实体/关系提取引擎
+│           ├── selfmod/             #   运行期自修改 UI
+│           │   └── DynamicPluginHost.tsx # 动态插件宿主（client half 执行）
 │           ├── sidebar/             # 侧边栏
 │           │   ├── Sidebar.tsx
 │           │   ├── ProjectBar.tsx
@@ -392,11 +416,12 @@ mira/
 │           ├── contexts/ThemeContext.tsx # React Contexts
 │           ├── theme/data-colors.ts #   项目颜色管理
 │           ├── lib/                 # 工具函数
-│           │   ├── attachment-adapter.ts
+│           │   ├── attachment-adapter.ts / attachment-picker-ui.ts
+│           │   ├── excel.ts / ooxml.ts / file-parser.ts / image-compress.ts / svg-inline.ts
 │           │   └── utils.ts
 │           ├── services/            # 服务层（IPC 封装）
 │           │   ├── agent.service.ts / config.service.ts / dialog.service.ts
-│           │   ├── graph.service.ts / memory.service.ts
+│           │   ├── graph.service.ts / memory.service.ts / selfmod.service.ts
 │           │   ├── project.service.ts / session.service.ts / index.ts
 │           │   └── voice/           #   语音服务（引擎获取层 + 薄封装 core）
 │           │       ├── engine-registry.ts # 目录驱动引擎获取（IPC catalog → core 工厂）
@@ -486,7 +511,7 @@ mira/
 
 支持通过 `~/.config/mira/agents/` 和 `{project}/.mira/agents/` 目录加载自定义 Agent JSON 配置（`AgentProfileRegistry`，优先级：内置默认 < 全局 < 项目）。
 
-## 工具清单（48 个默认注册）
+## 工具清单（63 个默认注册：56 基础 + 7 个 officecli_* 条件注册）
 
 | 分类 | 工具 | 说明 |
 |------|------|------|
@@ -526,11 +551,12 @@ mira/
 | | worktree | Git Worktree 隔离任务目录 |
 | | workflow_run | Dynamic Workflow 执行 |
 | | spawn_agent / wait_agents / list_subagents | 子 Agent 生命周期管理 |
-| **infra** | lsp_definition / lsp_references / lsp_hover / lsp_symbols / lsp_implementations | 代码定义跳转/引用查找/悬停/文件符号大纲/实现查找 |
+| **infra** | lsp_definition / lsp_references / lsp_hover / lsp_symbols / lsp_implementations / lsp_rename | 代码定义跳转/引用查找/悬停/文件符号大纲/实现查找/符号重命名 |
+| **office** | officecli_inspect / officecli_get / officecli_query / officecli_issues / officecli_validate / officecli_edit / officecli_merge | OfficeCLI 文档操作（office 能力缝可用时条件注册，fail-closed） |
 | **skill** | skills_list / skill_view | 列出/查看 Skill |
 | **interaction** | question | 向用户提问 |
 
-> **补充**：另有 5 个记忆图谱工具已实现并导出（`memory_activate`、`memory_graph_add_node`、`memory_graph_add_edge`、`memory_graph_query`、`memory_graph_decay`），但**未加入默认注册表**（`registry-init.ts` 未引用）。此外 MCP / Plugin / 自定义工具在运行时动态注册，工具名加 `[MCP: ]` / `[Plugin: ]` 前缀。
+> **补充**：另有 5 个记忆图谱工具已实现并导出（`memory_activate`、`memory_graph_add_node`、`memory_graph_add_edge`、`memory_graph_query`、`memory_graph_decay`），**已加入默认注册表**（`registry-init.ts` 引用）。此外 MCP / Plugin / 自定义工具在运行时动态注册，工具名加 `[MCP: ]` / `[Plugin: ]` 前缀。
 >
 > **运行期自修改工具**（`selfmod/tools.ts`）：`mira_plugin_define` / `mira_plugin_run` / `mira_plugin_stop` / `mira_plugin_undefine` / `mira_plugin_list` / `mira_plugin_inspect` — Agent 在运行期定义、持久化、激活、卸载自己的插件，经 VM 沙箱 + 审批门执行。
 >
@@ -555,6 +581,8 @@ mira/
 
 Provider 数据定义在 `resources/models/model-catalog.json`（内置目录，含 models + 上下文窗口 + 成本 + 能力），由 `builtin-providers.ts` 加载为 TS 数据，`ProviderCatalog` 负责路由到对应协议。
 
+> **注意**：`model-catalog.json` 与 `voice-catalog.json` 均为**生成产物且被 .gitignore 忽略**（`resources/models/`），仓库中不存在。需先运行 `pnpm models:refresh`（`scripts/refresh-model-catalog.mjs`，从 models.dev 拉取云 Provider 目录）和 `. .\scripts\download-models.ps1; Invoke-DownloadModels`（下载本地 ONNX 模型）生成；缺失时 `loadBuiltinProviders()` 告警并返回空目录（Provider 目录为空，设置页无内置模型列表）。
+
 > **模型目录可插拔（一切皆插件）**：能力数据统一收敛到 `ProviderCatalog`（Core 单一数据源）。三层合并：
 > 1. **内置** `resources/models/model-catalog.json`（打包经 `electron-builder.yml` 的 `resources/models → models` extraResources 分发）
 > 2. **全局用户** `~/.config/mira/models.json`（`config/models-config.ts` 加载）：`providers`（完整 ProviderDef，新增 provider 或整体覆盖内置）+ `overrides`（对已注册 provider 增量覆盖，如为模型追加 `capabilities: ["vision"]`）
@@ -571,9 +599,9 @@ Mira 已落地完整插件框架内核（对齐 deepseek-harness 的 vendored Co
 |------|------|------|
 | **框架内核** | Context（服务仓库）+ inject 依赖声明 + Fiber 生命周期 + 可逆 effect | `vendor/cordis/` |
 | **类型化事件** | `declare module` 合并事件表 + 5 种分发（emit/parallel/serial/bail/waterfall） | `framework/events.ts` |
-| **统一服务寻址** | `ctx.tools/llm/permissions/sessions/memory/dynamicMemory/mcp/catalog/config/agentLoop/fs/subprocess/shell` | `framework/context.ts` + `services/` |
+| **统一服务寻址** | `ctx.tools/llm/permissions/sessions/memory/dynamicMemory/mcp/catalog/config/agentLoop/agents/systemPrompt/fs/subprocess/shell` + 11 个特色功能服务 `ctx.workflow/graph/compose/subagent/goal/dream/lsp/skill/background/task/voice`（引擎可替换、disposer 可逆回滚） | `framework/context.ts` + `services/` |
 | **Capability Seams** | `ctx.fs/subprocess/shell.setProvider()` 换 Provider 换产品（同步 capabilityRegistry，工具即时跟随） | `services/capability.ts` |
-| **循环插件化** | `AgentLoopImpl` + `setLoop()` 可替换；`agent/pre-step/request`、`tools/pre-execute/post-execute` 事件接缝已接通 | `services/agent-loop.ts`、`agent/stages.ts` |
+| **循环插件化** | `AgentLoopImpl` + `setLoop()` 可替换；`agent/pre-step/request`、`tools/pre-execute/post-execute`、`agent/step-end`（回合级收敛保护）事件接缝已接通 | `services/agent-loop.ts`、`agent/stages.ts`、`agent/convergence-guard.ts` |
 | **配置组合** | Bundle 叠加 + `{project}/.mira/plugins.patch.json` 覆盖 + `dumpConfig()` | `config/bundle.ts` |
 | **运行期自修改** | Agent 用 `mira_plugin_*` 定义/持久化/激活/卸载自己的插件（VM 沙箱 + 审批门 + client half Worker 沙箱） | `selfmod/` |
 
@@ -595,7 +623,7 @@ Mira 已落地完整插件框架内核（对齐 deepseek-harness 的 vendored Co
 配置：`goalDescription` + `judgeModel`，最多评估 12 次，连续失败 3 次自动终止。
 
 ### Max Mode（并行采样选优）
-每轮并行生成 N 个候选方案（默认 5，clamp 2–8），由 judge 模型选出最优执行。
+每轮并行生成 N 个候选方案（默认 3，clamp 2–8），由 judge 模型选出最优执行。
 提升 10-20% 准确率，代价 4-5x token 消耗。
 
 ### Dream/Distill（记忆进化）
@@ -613,7 +641,7 @@ Mira 已落地完整插件框架内核（对齐 deepseek-harness 的 vendored Co
 | **遗忘机制** | 衰减曲线（`decay-curve.ts`）+ 强度计算（`memory-strength.ts`），访问重置 |
 | **中文支持** | 中文分词（`chinese-tokenizer.ts`）+ 同义词（`chinese-synonyms.ts` / `synonym-discovery.ts`） |
 | **向量嵌入** | Transformers.js 本地 ONNX 推理 + 嵌入缓存（`embedding-cache.ts`） |
-| **工具** | `memory_activate` + `memory_graph_*` 系列（导出但默认未注册） |
+| **工具** | `memory_activate` + `memory_graph_*` 系列（已注册进默认注册表） |
 
 ### Graph Engineering（图编排引擎）
 Planner / Runtime / Recovery 三层分离的通用图编排引擎（`packages/core/src/graph/`）：
@@ -661,7 +689,7 @@ Phase 驱动的软件开发工作流（`compose-mode.ts`）：`plan → execute 
 代码智能：定义跳转、引用查找、悬停、文件符号大纲、实现查找。手写 JSON-RPC over stdio 客户端（Content-Length 帧解析），支持 server→client 请求/通知分发。`server-defs.ts` 声明式定义语言服务器（当前内置 TypeScript，可扩展），`dependency.ts` 自动解析依赖（系统 PATH → 本地缓存 `userData/lsp/<id>/` → 白名单版本锁定自动安装），`indexing.ts` 追踪 `$/progress` 索引进度（跨文件查询前等待索引就绪），`diagnostic-check.ts` 提供编辑前后诊断对比（edit_file 写入后自动自检并返回新增错误/警告）。
 
 ### ACP（Agent Communication Protocol）
-`orchestrate/acp/`：标准化的 Agent 间通信协议，含消息类型（20 个工厂函数）、`WorkStateMachine` 工作状态机 + 全局单例。
+`orchestrate/acp/`：标准化的 Agent 间通信协议，含消息类型（13 个 `create*` 消息工厂 + 9 个消息工具函数，共 22 个导出）、`WorkStateMachine` 工作状态机 + 全局单例。
 
 ### 语音模块（Voice）
 `voice/`（renderer-safe 纯入口 `@mira/core/voice`，可插拔引擎）+ `ui/services/voice/`（IPC 目录驱动获取层）：能量检测 VAD + 语音打断管理 + Whisper STT（本地 ONNX）+ Kokoro TTS，`VoiceChatButton` 一键实时语音对话。
@@ -675,7 +703,7 @@ LLM 生成的 HTML 代码块在沙箱 iframe（`sandbox="allow-scripts"`）中�
 独立透明置顶窗口（`pet.html` + `PetApp.tsx`），Pixi.js 8 + untitled-pixi-live2d-engine 渲染，支持嘴型同步（ParamMouthOpenY）+ 直接对话 + 实时语音。设置页开关控制（`settings.live2dPet`），窗口位置记忆（`pet-bounds.json`）。
 
 ### Token 成本追踪
-`shared/cost.ts`：内置 12+ 模型定价表（gpt-4o/o1/claude-sonnet-4/opus-4/deepseek 等），按 prompt/completion/cacheRead/cacheWrite 分项计费，会话级成本累加存入 SQLite `sessions.cost`。
+`shared/cost.ts`：内置 20 个模型定价表（gpt-4o/o1/claude-sonnet-4/opus-4/deepseek 等），按 prompt/completion/cacheRead/cacheWrite 分项计费，会话级成本累加存入 SQLite `sessions.cost`。
 
 ## 聊天模块（Part 消息体系）
 
@@ -770,7 +798,14 @@ SQLite (sql.js WASM) 表结构（`system/database.ts`）：
 - `agent/run-coordinator.ts`、`system/tool-scope.ts` — 仅测试使用
 - `agent/session-restore.ts` 的导出 `restoreSessionHistory` 与 `agent.ts` 私有实现重复
 
-> **Cordis 适配层已接线**：`framework/`（Context/事件/插件桥）与 `services/`（`createMiraContext` 装配 12 个服务）已接入 `Agent.setMiraContext(ctx)` 与运行期自修改；`selfmod/` 经 sidecar HTTP + IPC 暴露给 UI。
+> **Cordis 适配层已接线**：`framework/`（Context/事件/插件桥）与 `services/`（`createMiraContext` 装配 26 个服务：24 个 plugin + catalog/config 2 个 provide）已接入 `Agent.setMiraContext(ctx)` 与运行期自修改；`selfmod/` 经 sidecar HTTP + IPC 暴露给 UI。
+>
+> **特色功能已全部插件化（一切皆插件）**：
+> - `ctx.workflow`（持有 WorkflowEngine，setEngine 可替换）、`ctx.compose`（构造自动接线 `setSubagentManager`，registerPhase 可逆）、`ctx.subagent`（经 ctx.tools 解析 registry，setCordisContext 接线）、`ctx.goal` / `ctx.dream` / `ctx.lsp` / `ctx.skill`（addSkillDir 可逆）/ `ctx.background`（addCron/listCron/removeCron）/ `ctx.task`（planners 注册表从 task-tool 迁入）/ `ctx.graph`（activeGraphRuns 从 api.ts 迁入）/ `ctx.voice`（VoiceRegistry 服务视图）
+> - **工具经 `ToolContext.agentCtx` 服务寻址**（`shared/tool.ts`）：workflow-run/cronjob/plan_task/lsp_*/skills_list/skill_view 优先 `ctx.agentCtx.get("workflow"/"background"/"task"/"lsp"/"skill")`，无 ctx 回退模块级单例（零插件运行兼容）
+> - **记忆链迁入服务**：5 层 provider（builtin/checkpoint/file/fts/vector）由 `ctx.memory.initialize` 装配，插件经 `registerProvider` 可逆扩展；Agent 构造共享 `ctx.memory/ctx.goal/ctx.dream` 实例（消除 sidecar 双实例根源）
+> - **sidecar 单写者收敛**：`system/server/api.ts` 的 subagent/goal/graph handler 经 `miraContext.get(...)` 解析服务（本地单例仅冷启动兜底）；compose/dream/skill HTTP 端点新增（`/api/compose/*`、`/api/dream/*`、`/api/skills`）；主进程 `compose-ipc/dream-ipc/skill-ipc` 全部经 sidecar HTTP 代理，不再自建 core 实例
+> - **会话 Agent 作用域已接线**：`api.ts` stream handler 为每次会话铸 `createScope` + `attachScope`（与 agent-loop/subagent 同款模式），`agentCtx` 含 `agent` 服务——运行时工具经 `ToolContext.agentCtx` 吃到插件服务 + 会话作用域事件路由；流结束（finally）与中断（onAbort）双路径 `scope.dispose()` 释放（memoized quiesce）
 
 ## 开发指南
 
@@ -789,7 +824,7 @@ pnpm package:mac    # macOS
 pnpm package:linux  # Linux
 
 # 测试
-pnpm test           # Vitest 4（当前基线：84 个测试文件，759 个通过用例）
+pnpm test           # Vitest 4（当前基线：87 个测试文件，774 个通过用例）
 
 # 类型检查
 pnpm typecheck

@@ -53,54 +53,56 @@ function parseFrontmatter(content: string): { frontmatter: Record<string, any>; 
   return { frontmatter, body: lines.slice(endIdx + 1).join("\n").trim() }
 }
 
-/** 扫描 skills 目录，返回所有 skill 的元数据 */
-export function scanSkills(): SkillMeta[] {
-  const dir = getSkillsDir()
-  if (!fs.existsSync(dir)) return []
-
+/** 扫描 skills 目录（默认 ~/.config/mira/skills + 可选扩展目录，返回所有 skill 的元数据） */
+export function scanSkills(extraDirs: string[] = []): SkillMeta[] {
+  const dirs = [getSkillsDir(), ...extraDirs]
   const results: SkillMeta[] = []
 
-  try {
-    for (const category of fs.readdirSync(dir)) {
-      const categoryPath = join(dir, category)
-      if (!fs.statSync(categoryPath).isDirectory()) continue
+  for (const dir of dirs) {
+    if (!fs.existsSync(dir)) continue
 
-      for (const skillName of fs.readdirSync(categoryPath)) {
-        const skillPath = join(categoryPath, skillName)
-        if (!fs.statSync(skillPath).isDirectory()) continue
+    try {
+      for (const category of fs.readdirSync(dir)) {
+        const categoryPath = join(dir, category)
+        if (!fs.statSync(categoryPath).isDirectory()) continue
 
-        const skillMdPath = join(skillPath, "SKILL.md")
-        if (!fs.existsSync(skillMdPath)) continue
+        for (const skillName of fs.readdirSync(categoryPath)) {
+          const skillPath = join(categoryPath, skillName)
+          if (!fs.statSync(skillPath).isDirectory()) continue
 
-        try {
-          const content = fs.readFileSync(skillMdPath, "utf-8")
-          const { frontmatter, body } = parseFrontmatter(content)
+          const skillMdPath = join(skillPath, "SKILL.md")
+          if (!fs.existsSync(skillMdPath)) continue
 
-          const name = frontmatter.name || skillName
-          const description = frontmatter.description || body.split("\n").find((l) => l.trim() && !l.startsWith("#"))?.trim() || ""
+          try {
+            const content = fs.readFileSync(skillMdPath, "utf-8")
+            const { frontmatter, body } = parseFrontmatter(content)
 
-          results.push({
-            name: String(name).slice(0, 64),
-            description: String(description).slice(0, 1024),
-            category: category === "_root" ? null : category,
-            path: skillPath,
-            tags: (frontmatter.tags || frontmatter["metadata.hermes.tags"] || []) as string[],
-          })
-        } catch {
-          // 跳过无法读取的 skill
+            const name = frontmatter.name || skillName
+            const description = frontmatter.description || body.split("\n").find((l) => l.trim() && !l.startsWith("#"))?.trim() || ""
+
+            results.push({
+              name: String(name).slice(0, 64),
+              description: String(description).slice(0, 1024),
+              category: category === "_root" ? null : category,
+              path: skillPath,
+              tags: (frontmatter.tags || frontmatter["metadata.hermes.tags"] || []) as string[],
+            })
+          } catch {
+            // 跳过无法读取的 skill
+          }
         }
       }
+    } catch {
+      // 目录不存在或无法读取
     }
-  } catch {
-    // 目录不存在或无法读取
   }
 
   return results
 }
 
-/** 加载指定 skill 的完整内容 */
-export function loadSkill(name: string): SkillContent | null {
-  const allSkills = scanSkills()
+/** 加载指定 skill 的完整内容（extraDirs 与 scanSkills 一致） */
+export function loadSkill(name: string, extraDirs: string[] = []): SkillContent | null {
+  const allSkills = scanSkills(extraDirs)
   const meta = allSkills.find((s) => s.name === name)
   if (!meta) return null
 
@@ -127,9 +129,9 @@ export function loadSkill(name: string): SkillContent | null {
   }
 }
 
-/** 查看 skill 指定目录下的关联文件 */
-export function loadSkillFile(name: string, filePath: string): string | null {
-  const allSkills = scanSkills()
+/** 查看 skill 指定目录下的关联文件（extraDirs 与 scanSkills 一致） */
+export function loadSkillFile(name: string, filePath: string, extraDirs: string[] = []): string | null {
+  const allSkills = scanSkills(extraDirs)
   const meta = allSkills.find((s) => s.name === name)
   if (!meta) return null
 

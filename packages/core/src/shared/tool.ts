@@ -29,6 +29,10 @@ export interface ToolContext {
   model?: string
   headers?: Record<string, string>
   options?: Record<string, unknown>
+  /** 作用域 Cordis Context（attachScope 铸造，owner 经 ctx.agent 读取）：
+   *  工具经 ctx.agentCtx.get("workflow"/"graph"/"lsp"/"skill"/"task"/"background"/…) 寻址 Cordis 服务。
+   *  无 ctx（零插件运行/测试）时工具回退模块级单例。 */
+  agentCtx?: import("../vendor/cordis/index").Context
 }
 
 export interface ToolResult {

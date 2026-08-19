@@ -4,7 +4,14 @@
 
 import { z } from "zod"
 import { make } from "../../shared/tool"
-import { cronScheduler } from "../../background/cron"
+import { cronScheduler, type CronTask } from "../../background/cron"
+
+/** 后台服务接口（cron-tool 经 ctx.agentCtx 寻址；无 ctx 回退模块级调度器单例） */
+interface BackgroundServiceLike {
+  addCron(id: string, expression: string, description: string, handler: () => Promise<void>): void
+  removeCron(id: string): void
+  listCron(): CronTask[]
+}
 
 export const cronTool = make({
   name: "cronjob",
@@ -16,10 +23,11 @@ export const cronTool = make({
     description: z.string().optional().describe("任务描述"),
   }),
   outputSchema: z.string(),
-  execute: async (input) => {
+  execute: async (input, ctx) => {
     try {
+      const bg = ctx.agentCtx?.get("background") as BackgroundServiceLike | undefined
       if (input.action === "list") {
-        const tasks = cronScheduler.list()
+        const tasks = bg ? bg.listCron() : cronScheduler.list()
         if (tasks.length === 0) return { success: true, output: "没有已注册的定时任务" }
         const lines = tasks.map((t) => {
           const next = t.nextRun ? new Date(t.nextRun).toLocaleString("zh-CN") : "无"
@@ -32,15 +40,22 @@ export const cronTool = make({
         if (!input.id || !input.expression) {
           return { success: false, error: "add 需要 id 和 expression 参数" }
         }
-        cronScheduler.add(input.id, input.expression, input.description || input.id, async () => {
-          // 默认空操作，实际使用时可通过钩子系统注册真实行为
-        })
+        if (bg) {
+          bg.addCron(input.id, input.expression, input.description || input.id, async () => {
+            // 默认空操作，实际使用时可通过钩子系统注册真实行为
+          })
+        } else {
+          cronScheduler.add(input.id, input.expression, input.description || input.id, async () => {
+            // 默认空操作，实际使用时可通过钩子系统注册真实行为
+          })
+        }
         return { success: true, output: `✅ 定时任务 "${input.id}" 已创建: ${input.expression} — ${input.description || ""}` }
       }
 
       if (input.action === "remove") {
         if (!input.id) return { success: false, error: "remove 需要 id 参数" }
-        cronScheduler.remove(input.id)
+        if (bg) bg.removeCron(input.id)
+        else cronScheduler.remove(input.id)
         return { success: true, output: `已移除定时任务 "${input.id}"` }
       }
 

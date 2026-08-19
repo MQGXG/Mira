@@ -11,7 +11,7 @@ import { getJsonSchema } from "../../shared/tool"
 import { loadWorkspacePermissions, saveWorkspacePermission } from "../permission/store"
 import { buildInstructionSystemPrompt } from "../instruction"
 import { matchSkillCommand, buildSkillInvocationMessage } from "../../skill/skill-commands"
-import { loadSkill } from "../../skill/skill-loader"
+import { loadSkill, scanSkills } from "../../skill/skill-loader"
 import { initDatabase, flushSave } from "../database"
 import {
   listProjects,
@@ -43,11 +43,10 @@ import { setSubagentManager } from "../../tools/orchestrate/agent-tools"
 import { GoalJudge } from "../../orchestrate/goal-judge"
 import type { TaskStatus } from "../../task/tracker"
 import { answerQuestion, getPendingQuestions } from "../../tools/interaction/question"
-import { StateGraph, GraphPersist } from "../../graph"
-import { buildCodingTaskGraph, type CodingState } from "../../graph/templates/coding-task"
-import type { GraphRunResult } from "../../graph/types"
+import { MiraGraphService } from "../../services/graph"
 import { createMiraContext } from "../../framework/services"
 import { setupSelfModification, getDynamicPluginRunner } from "../../selfmod"
+import { createScope, type Scope } from "../../scope/index"
 import type { Context as MiraContext } from "../../vendor/cordis/index"
 
 // ── 初始化 ──────────────────────────────────────────
@@ -165,6 +164,8 @@ interface AgentSession {
   channel: string
   config: AgentConfig
   abortController: AbortController
+  /** 会话 Agent 作用域（attachScope 铸造）：工具经 ctx.agentCtx 吃到插件服务；流结束/中断时释放 */
+  scope?: Scope
 }
 
 const activeSessions = new Map<string, AgentSession>()
@@ -248,6 +249,7 @@ export async function handleStartStream(
 
   const sharedFTS = await ensureSharedMemoryFTS(workspace)
   logInfo("[stream] ensureSharedMemoryFTS ok")
+  const mira = await getMiraContext()
   const agent = new Agent(
     registry,
     mergedConfig.apiKey,
@@ -256,10 +258,15 @@ export async function handleStartStream(
     {
       ftsProvider: sharedFTS ?? undefined,
       // Cordis Context 注入：Agent 循环可被插件扩展（agent/pre-step 等）+ 运行期自修改工具
-      cordisCtx: await getMiraContext(),
+      cordisCtx: mira,
     },
   )
   logInfo("[stream] Agent created")
+  // 铸 agent scope → attachScope（agentCtx 含 agent 服务）：
+  // 会话内工具经 ctx.agentCtx 吃到插件服务 + 会话作用域事件路由（对齐 agent-loop/subagent 同款模式）
+  const agentScope = createScope(mira, { sessionId: sessionId })
+  agent.attachScope(sessionId, agentScope.ctx)
+  logInfo("[stream] agent scope attached")
   // 将 FTS provider 注册到模块级单例（供 memory 工具和 HTTP 端点使用）
   const fts = agent.getFTSProvider()
   if (fts) {
@@ -314,12 +321,14 @@ export async function handleStartStream(
   setParentConfig(effectiveConfig)
 
   const abortController = new AbortController()
-  const session: AgentSession = { agent, channel, config: effectiveConfig, abortController }
+  const session: AgentSession = { agent, channel, config: effectiveConfig, abortController, scope: agentScope }
   activeSessions.set(channel, session)
 
   ctx.onAbort(() => {
     agent.abort()
     activeSessions.delete(channel)
+    // 中断路径：释放会话 Agent 作用域（quiesceFiber 跑完 fiber disposers）
+    void agentScope.dispose()
   })
 
   // 在后台运行 Agent 并通过 ctx 推送事件
@@ -348,6 +357,8 @@ async function runAgentInBackground(
     ctx.writeEvent({ type: "finish", reason: "completed" })
     ctx.writeEnd()
     activeSessions.delete(session.channel)
+    // 正常路径：释放会话 Agent 作用域（memoized，与 onAbort 竞态共享一次 quiescence）
+    await session.scope?.dispose()
     // 确保本轮消息可靠落盘（防抖持久化可能在进程退出前未触发）
     flushSave()
   }
@@ -596,60 +607,73 @@ export function handleRestoreSnapshot(snapshotId: string, workspace: string): Pr
 }
 
 // ── 子 Agent（Sidecar 单写者） ─────────────────────────
-// 共享实例：sidecar 的 spawn_agent/delegate_task 工具与 HTTP 端点共用，
-// 避免主进程再创建 SubagentManager 写 actor_registry。
+// 正常路径经 ctx.subagent 服务（createMiraContext 装配，setCordisContext 已接线）；
+// 本地单例仅作 ctx 未装配的冷启动兜底。
 
 const subagentManager = new SubagentManager(registry, { maxParallel: 5 })
 setSubagentManager(subagentManager)
 
+/** 子 Agent 管理器解析：ctx.subagent 服务优先，回退本地兜底单例 */
+function resolveSubagentManager() {
+  const svc = miraContext?.get("subagent") as { getManager(): SubagentManager } | undefined
+  return svc?.getManager() ?? subagentManager
+}
+
 export function handleSubagentSpawn(description: string, config: Record<string, unknown>, options?: { parentId?: string; prompt?: string; model?: string }) {
-  return subagentManager.spawn(description, config as unknown as AgentConfig, options)
+  return resolveSubagentManager().spawn(description, config as unknown as AgentConfig, options)
 }
 
 export async function handleSubagentWait(id: string, timeoutMs?: number) {
-  return await subagentManager.wait(id, timeoutMs)
+  return await resolveSubagentManager().wait(id, timeoutMs)
 }
 
 export function handleSubagentCancel(id: string): boolean {
-  return subagentManager.cancel(id)
+  return resolveSubagentManager().cancel(id)
 }
 
 export function handleSubagentGet(id: string) {
-  return subagentManager.getInfo(id)
+  return resolveSubagentManager().getInfo(id)
 }
 
 export function handleSubagentList(filter?: { parentId?: string; status?: SubagentStatus }) {
-  return subagentManager.list(filter)
+  return resolveSubagentManager().list(filter)
 }
 
 export function handleSubagentListActive() {
-  return subagentManager.listActive()
+  return resolveSubagentManager().listActive()
 }
 
 export function handleSubagentListByParent(parentId: string) {
-  return subagentManager.listByParent(parentId)
+  return resolveSubagentManager().listByParent(parentId)
 }
 
 export function handleSubagentCancelByParent(parentId: string): boolean {
-  subagentManager.cancelAllByParent(parentId)
+  resolveSubagentManager().cancelAllByParent(parentId)
   return true
 }
 
 export function handleSubagentCancelAll(): boolean {
-  subagentManager.cancelAll()
+  resolveSubagentManager().cancelAll()
   return true
 }
 
 export function handleSubagentToText(): string {
-  return subagentManager.toText()
+  return resolveSubagentManager().toText()
 }
 
 // ── Goal（Sidecar 单写者） ─────────────────────────────
+// 正常路径经 ctx.goal 服务；本地单例仅作冷启动兜底。
 
 const goalJudge = new GoalJudge()
 
+/** Goal 判定器解析：ctx.goal 服务优先，回退本地兜底单例 */
+function resolveGoalJudge() {
+  const svc = miraContext?.get("goal") as { getJudge(): GoalJudge } | undefined
+  return svc?.getJudge() ?? goalJudge
+}
+
 export function handleGoalSet(description: string, timeoutMs?: number) {
-  return goalJudge.setGoal(description, timeoutMs)
+  return resolveGoalJudge().setGoal(description, timeoutMs)
 }
 
 export function handleGoalGetActive() {
@@ -661,20 +685,20 @@ export function handleGoalList() {
 }
 
 export function handleGoalCancel(): boolean {
-  return goalJudge.cancelGoal()
+  return resolveGoalJudge().cancelGoal()
 }
 
 export function handleGoalToText(): string {
-  return goalJudge.toText()
+  return resolveGoalJudge().toText()
 }
 
 export async function handleGoalLoad(sessionID: string) {
-  await goalJudge.load(sessionID)
-  return goalJudge.getAllGoals()
+  await resolveGoalJudge().load(sessionID)
+  return resolveGoalJudge().getAllGoals()
 }
 
 export async function handleGoalSave(): Promise<void> {
-  return goalJudge.save()
+  return resolveGoalJudge().save()
 }
 
 // ── Task（Sidecar 单写者，taskTracker 已在 stream 初始化） ──
@@ -722,9 +746,14 @@ export function handleQuestionListPending() {
   return getPendingQuestions()
 }
 
-// ── Graph 图编排（Sidecar 单写者） ─────────────────────
+// ── Graph 图编排（Sidecar 单写者，经 ctx.graph 服务单一寻址） ─────
+// activeGraphRuns 已迁入 MiraGraphService；SSE 流控（graph_event/graph_result/end）由本层持有。
 
-const activeGraphRuns = new Map<string, { promise: Promise<GraphRunResult<CodingState>> }>()
+function resolveGraphService(): MiraGraphService {
+  const svc = miraContext?.get("graph") as MiraGraphService | undefined
+  if (!svc) throw new Error("ctx.graph 未装配（需 createMiraContext 且 graph 服务注册）")
+  return svc
+}
 
 export function handleRunGraphTask(
   request: string,
@@ -733,65 +762,180 @@ export function handleRunGraphTask(
   ctx: APIContext,
   runId: string,
 ): void {
-  const graph = buildCodingTaskGraph(registry, config as unknown as AgentConfig, {
+  const svc = resolveGraphService()
+  svc.runCodingTask(
     request,
-    maxSteps: options?.maxSteps,
-    testCommand: options?.testCommand,
-    collectEvents: true,
-  })
-  const engine = new StateGraph<CodingState>(graph)
-
-  const promise = engine.run({
+    config,
+    options,
     runId,
-    maxTotalTokens: options?.maxTotalTokens,
-    initialState: {
-      request,
-      files: [],
-      testOutput: "",
-      testPassed: false,
-      reviewVerdict: "pending",
-      reviewFeedback: "",
-      fixFeedback: "",
-      iterations: 0,
-      finalSummary: "",
-      trace: [],
+    (evt) => ctx.writeEvent({ type: "graph_event", event: evt }),
+    {
+      onResult: (result) => {
+        ctx.writeEvent({
+          type: "graph_result",
+          runId,
+          status: result.status,
+          state: result.state,
+          visited: result.visited,
+          totalTokens: result.totalTokens,
+          error: result.error,
+        })
+      },
+      onEnd: () => {
+        try { ctx.writeEnd() } catch { /* SSE 已关闭 */ }
+      },
     },
-    onEvent: (evt) => ctx.writeEvent({ type: "graph_event", event: evt }),
-  })
-
-  activeGraphRuns.set(runId, { promise })
-  void promise
-    .then((result) => {
-      ctx.writeEvent({
-        type: "graph_result",
-        runId,
-        status: result.status,
-        state: result.state,
-        visited: result.visited,
-        totalTokens: result.totalTokens,
-        error: result.error,
-      })
-    })
-    .finally(() => {
-      ctx.writeEnd()
-      activeGraphRuns.delete(runId)
-    })
-    .catch(() => {
-      try { ctx.writeEnd() } catch { /* ignore */ }
-      activeGraphRuns.delete(runId)
-    })
+  )
 }
 
 export function handleGraphGetStatus(runId: string) {
-  return activeGraphRuns.has(runId) ? { runId, active: true } : { runId, active: false }
+  return resolveGraphService().getStatus(runId)
 }
 
 export function handleGraphListRuns(graphId?: string) {
-  return new GraphPersist().listCheckpoints(graphId || "coding-task")
+  return resolveGraphService().listRuns(graphId)
 }
 
 export function handleGraphStop(runId: string): boolean {
-  if (!activeGraphRuns.has(runId)) return false
-  activeGraphRuns.delete(runId)
+  return resolveGraphService().stop(runId)
+}
+
+// ── Compose（经 ctx.compose 服务单一寻址） ───────────────
+// 主进程 compose-ipc 原自建 ComposeModeManager（双实例根源）→ 改为经 sidecar HTTP 调本层，
+// 本层统一走 createMiraContext 装配的 ctx.compose（含 subagent 自动接线）。
+
+import type { ComposePhase, ComposeState, ComposeSkill } from "../../compose-mode"
+import { ComposeModeManager } from "../../compose-mode"
+import type { ComposeService, DreamService } from "../../framework/context"
+import type { LLMConfig } from "../../orchestrate/dream-types"
+
+function resolveComposeService(): ComposeService {
+  const svc = miraContext?.get("compose") as ComposeService | undefined
+  if (!svc) throw new Error("ctx.compose 未装配（需 createMiraContext 且 compose 服务注册）")
+  return svc
+}
+
+export function handleComposeStart(spec: string) {
+  return resolveComposeService().start(spec)
+}
+
+export function handleComposeGetState() {
+  return resolveComposeService().getState()
+}
+
+export function handleComposeGetCurrentSkill() {
+  return resolveComposeService().getCurrentSkill() ?? null
+}
+
+export function handleComposeAdvance() {
+  return resolveComposeService().advance()
+}
+
+export function handleComposeGoTo(phase: ComposePhase) {
+  return resolveComposeService().goTo(phase)
+}
+
+export function handleComposeUpdate(updates: Partial<ComposeState>) {
+  resolveComposeService().update(updates)
   return true
+}
+
+export function handleComposeAddCodeFile(filePath: string) {
+  resolveComposeService().addCodeFile(filePath)
+  return true
+}
+
+export function handleComposeAddReviewComment(comment: string) {
+  resolveComposeService().addReviewComment(comment)
+  return true
+}
+
+export function handleComposeAddTestResult(result: string) {
+  resolveComposeService().addTestResult(result)
+  return true
+}
+
+export function handleComposeAddDebugLog(log: string) {
+  resolveComposeService().addDebugLog(log)
+  return true
+}
+
+export function handleComposeSetVerificationPassed(passed: boolean) {
+  resolveComposeService().setVerificationPassed(passed)
+  return true
+}
+
+export function handleComposeComplete() {
+  return resolveComposeService().complete()
+}
+
+export function handleComposeCancel() {
+  return resolveComposeService().cancel()
+}
+
+export function handleComposeGetHistory() {
+  return resolveComposeService().getHistory()
+}
+
+export function handleComposeToText() {
+  return resolveComposeService().toText()
+}
+
+export function handleComposeGetSkills() {
+  return ComposeModeManager.getSkills()
+}
+
+export function handleComposeGetPhaseOrder() {
+  return ComposeModeManager.getPhaseOrder()
+}
+
+// ── Dream/Distill（经 ctx.dream 服务单一寻址） ────────────
+// 主进程 dream-ipc 原自建 DreamDistillManager（双实例根源）→ 经 sidecar HTTP 调本层。
+
+function resolveDreamService(): DreamService {
+  const svc = miraContext?.get("dream") as DreamService | undefined
+  if (!svc) throw new Error("ctx.dream 未装配（需 createMiraContext 且 dream 服务注册）")
+  return svc
+}
+
+export async function handleDreamDistillDream(
+  conversationHistory: unknown[],
+  config: { apiKey: string; apiUrl: string; model: string; provider: string },
+) {
+  const svc = resolveDreamService()
+  await svc.initialize(config.apiUrl || process.cwd())
+  return svc.runDream(conversationHistory as LLMMessage[], config as unknown as LLMConfig)
+}
+
+export async function handleDreamDistillDistill(
+  conversationHistory: unknown[],
+  config: { apiKey: string; apiUrl: string; model: string; provider: string },
+) {
+  const svc = resolveDreamService()
+  await svc.initialize(config.apiUrl || process.cwd())
+  return (await svc.distill(conversationHistory as LLMMessage[], config as unknown as LLMConfig)) as {
+    timestamp: string
+    workflowsFound: unknown[]
+    summary: string
+  }
+}
+
+export function handleDreamGetKnowledge() {
+  return resolveDreamService().getKnowledge()
+}
+
+export function handleDreamToText() {
+  return resolveDreamService().toText()
+}
+
+// ── Skill 列表（经 ctx.skill；无 ctx 冷启动回退默认目录扫描） ──
+
+export function handleSkillList() {
+  const svc = miraContext?.get("skill") as { list(): Array<{ name: string; description: string; category?: string }> } | undefined
+  if (svc) return svc.list()
+  return scanSkills().map((s) => ({
+    name: s.name,
+    description: s.description,
+    category: s.category ?? undefined,
+  }))
 }

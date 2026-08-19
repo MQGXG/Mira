@@ -5,8 +5,15 @@
 
 import { z } from "zod"
 import { make } from "../../shared/tool"
-import { lspManager } from "../../lsp/manager"
+import { lspManager, type LSPServerManager } from "../../lsp/manager"
+import type { ToolContext } from "../../shared/tool"
 import * as path from "path"
+
+/** LSP 管理器解析：优先 ctx.agentCtx.get("lsp") 服务（可替换），无 ctx 回退模块级单例 */
+function resolveLSP(ctx: ToolContext): LSPServerManager {
+  const svc = ctx.agentCtx?.get("lsp") as { getManager(): LSPServerManager } | undefined
+  return svc?.getManager() ?? lspManager
+}
 
 export const lspDefinitionTool = make({
   name: "lsp_definition",
@@ -20,7 +27,8 @@ export const lspDefinitionTool = make({
   permission: "read",
   async execute(input, ctx) {
     try {
-      const locations = await lspManager.getDefinition(ctx.workspace, input.path, input.line, input.column)
+      const manager = resolveLSP(ctx)
+      const locations = await manager.getDefinition(ctx.workspace, input.path, input.line, input.column)
       if (locations.length === 0) return { success: true, output: "未找到定义" }
       return {
         success: true,
@@ -49,7 +57,8 @@ export const lspReferencesTool = make({
   permission: "read",
   async execute(input, ctx) {
     try {
-      const refs = await lspManager.getReferences(ctx.workspace, input.path, input.line, input.column)
+      const manager = resolveLSP(ctx)
+      const refs = await manager.getReferences(ctx.workspace, input.path, input.line, input.column)
       if (refs.length === 0) return { success: true, output: "未找到引用" }
       return {
         success: true,
@@ -79,7 +88,8 @@ export const lspHoverTool = make({
   permission: "read",
   async execute(input, ctx) {
     try {
-      const info = await lspManager.getHoverInfo(ctx.workspace, input.path, input.line, input.column)
+      const manager = resolveLSP(ctx)
+      const info = await manager.getHoverInfo(ctx.workspace, input.path, input.line, input.column)
       if (!info) return { success: true, output: "该位置无类型信息" }
       return { success: true, output: info.contents }
     } catch (e) {
@@ -125,7 +135,8 @@ export const lspSymbolsTool = make({
   category: "infrastructure",
   async execute(input, ctx) {
     try {
-      const symbols = await lspManager.getSymbols(ctx.workspace, input.path)
+      const manager = resolveLSP(ctx)
+      const symbols = await manager.getSymbols(ctx.workspace, input.path)
       if (symbols.length === 0) return { success: true, output: "未找到符号（文件可能无符号或 LSP 未就绪）" }
       return {
         success: true,
@@ -151,7 +162,8 @@ export const lspImplementationsTool = make({
   category: "infrastructure",
   async execute(input, ctx) {
     try {
-      const locs = await lspManager.getImplementations(ctx.workspace, input.path, input.line, input.column)
+      const manager = resolveLSP(ctx)
+      const locs = await manager.getImplementations(ctx.workspace, input.path, input.line, input.column)
       if (locs.length === 0) return { success: true, output: "未找到实现" }
       return {
         success: true,
@@ -183,7 +195,8 @@ export const lspRenameTool = make({
   category: "infrastructure",
   async execute(input, ctx) {
     try {
-      const result = await lspManager.renameSymbol(ctx.workspace, input.path, input.line, input.column, input.newName)
+      const manager = resolveLSP(ctx)
+      const result = await manager.renameSymbol(ctx.workspace, input.path, input.line, input.column, input.newName)
       if (!result.success) return { success: false, error: result.error || "重命名失败" }
       return {
         success: true,

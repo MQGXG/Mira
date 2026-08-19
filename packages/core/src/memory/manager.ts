@@ -47,6 +47,14 @@ export class MemoryManager {
     this.providers.push(provider)
   }
 
+  /** 移除已注册 Provider（插件可逆注册用）；返回是否移除成功 */
+  removeProvider(name: string): boolean {
+    const idx = this.providers.findIndex(p => p.name === name)
+    if (idx < 0) return false
+    this.providers.splice(idx, 1)
+    return true
+  }
+
   /** 获取 FTS Provider（用于联动操作） */
   getFTSProvider(): FTSMemoryProvider | null {
     return (this.providers.find(p => p.name === "fts-memory") as FTSMemoryProvider) || null

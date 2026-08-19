@@ -231,6 +231,10 @@ export async function prepareRun(agent: unknown, config: AgentConfig): Promise<P
   a.graphBatchIds = []
 
   const ctx = buildToolContext(config)
+  // 作用域 Cordis Context 注入（优先 agentCtx，回退全局 miraCtx）：工具经 ctx.agentCtx 寻址 Cordis 服务
+  if (!ctx.agentCtx) {
+    ctx.agentCtx = (a.agentCtx ?? a.miraCtx) as PrepareRunResult["ctx"]["agentCtx"]
+  }
   if (config.permissions) a.approvalStore.setPermissions(config.permissions)
 
   const modelFilter = { providerID: config.provider || "openai", modelID: config.model }
@@ -509,17 +513,19 @@ export async function* handleTurn(
 
   if (turnOutput.toolCalls.length > 0) {
     const allNames = turnOutput.toolCalls.map(tc => tc.name)
-    const isSearchTurn = allNames.some(n => ["web_search", "web_fetch", "web_browse", "web_fetch_url"].includes(n))
-    const MAX_PURE_TOOL_TURNS = isSearchTurn ? 4 : 8
-    if (!turnOutput.text) {
-      a.consecutiveToolTurns++
-    } else {
-      a.consecutiveToolTurns = 0
-    }
-    if (a.consecutiveToolTurns >= MAX_PURE_TOOL_TURNS) {
-      yield { type: "thinking", text: `⛔ 已连续 ${a.consecutiveToolTurns} 轮工具调用但未产生回复，强制总结当前结果并停止。` }
-      messages.push({ role: "user", content: "你已经连续调用工具多次但尚未给出文字回复。请立即基于已有信息总结回答，不要再调用任何工具。" })
-      a.consecutiveToolTurns = 0
+    // 回合级收敛保护（loop-hygiene）插件化：agent/step-end waterfall
+    // 默认实现 registerConvergenceGuard（搜索 4 / 其他 8 纯工具回合强制总结）；
+    // 插件返回 string 即注入为总结指令；无 ctx 时跳过（向后兼容零插件运行）
+    const convergenceGuidance = a.miraCtx
+      ? await a.miraCtx.waterfall(
+          "agent/step-end",
+          { sessionID: config.sessionID, hasText: !!turnOutput.text, toolNames: allNames },
+          () => undefined,
+        )
+      : undefined
+    if (typeof convergenceGuidance === "string" && convergenceGuidance.trim().length > 0) {
+      yield { type: "thinking", text: "⛔ 已连续调用工具多次但未产生回复，强制总结当前结果并停止。" }
+      messages.push({ role: "user", content: convergenceGuidance })
       return { messages, shouldContinue: true }
     }
 

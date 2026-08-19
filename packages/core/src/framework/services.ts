@@ -20,8 +20,20 @@ import { MiraAgentLoop } from "../services/agent-loop"
 import { MiraAgentRegistry } from "../services/agents"
 import { MiraSystemPromptService } from "../services/system-prompt"
 import { MiraFileSystemService, MiraSubprocessService, MiraShellService } from "../services/capability"
+import { MiraWorkflowService } from "../services/workflow"
+import { MiraSkillService } from "../services/skill"
+import { MiraLSPService } from "../services/lsp"
+import { MiraBackgroundService } from "../services/background"
+import { MiraTaskService } from "../services/task"
+import { MiraGoalService } from "../services/goal"
+import { MiraDreamService } from "../services/dream"
+import { MiraSubagentService } from "../services/subagent"
+import { MiraComposeService } from "../services/compose"
+import { MiraGraphService } from "../services/graph"
+import { MiraVoiceService } from "../services/voice"
 import type { PermissionRule } from "../system/permission"
 import { pluginHooks } from "../shared/plugin-hooks"
+import { registerConvergenceGuard } from "../agent/convergence-guard"
 
 /** Provider 目录服务：静态 ProviderCatalog 的实例化视图 */
 class MiraCatalogService implements CatalogService {
@@ -93,6 +105,20 @@ export async function createMiraContext(options: MiraContextOptions = {}): Promi
   await ctx.plugin(MiraSubprocessService)
   await ctx.plugin(MiraShellService)
 
+  // 特色功能服务（引擎持有 + 可替换，插件经 ctx 寻址）
+  await ctx.plugin(MiraWorkflowService)
+  await ctx.plugin(MiraSkillService)
+  await ctx.plugin(MiraLSPService)
+  await ctx.plugin(MiraBackgroundService)
+  await ctx.plugin(MiraTaskService)
+  await ctx.plugin(MiraGoalService)
+  await ctx.plugin(MiraDreamService)
+  // subagent 依赖 tools（registry）；compose 依赖 subagent（自动接线 setSubagentManager）
+  await ctx.plugin(MiraSubagentService, { maxParallel: 5 })
+  await ctx.plugin(MiraComposeService)
+  await ctx.plugin(MiraGraphService)
+  await ctx.plugin(MiraVoiceService)
+
   // 服务快照提升：把各装配 fiber 的服务 impl 提升到 root fiber.store，
   // 使作用域 ctx（scope fiber）沿父链（→root fiber）也能解析服务。
   // 对齐 dsh loopCtx 语义：scope 铸造 ctx 能经父链快照解析全部服务。
@@ -111,6 +137,9 @@ export async function createMiraContext(options: MiraContextOptions = {}): Promi
 
   // 遗留插件 hook 薄包装绑定到根 ctx：旧 pluginHooks.on("pre_llm" 等) 转发到 dsh 命名事件
   pluginHooks.bindCtx(ctx)
+
+  // 回合级收敛保护（loop-hygiene）默认插件：连续纯工具回合强制总结（4 搜索 / 8 其他）
+  registerConvergenceGuard(ctx)
 
   return ctx
 }

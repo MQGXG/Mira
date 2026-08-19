@@ -57,6 +57,17 @@ declare module "../vendor/cordis/context" {
       this: unknown,
       payload: { messages: LLMMessage[]; config: AgentConfig },
     ): boolean | string | void
+    /**
+     * 回合级收敛保护（loop-hygiene，对齐 dsh guard 插件化思路）：
+     * 每个纯工具回合（有工具调用）完成后触发；监听器返回 string 作为
+     * 强制总结指令（由循环注入并继续），void 放行。首个返回 string 的
+     * 监听器短路（无需调用 next）。 @mode waterfall
+     */
+    "agent/step-end"(
+      this: unknown,
+      payload: { sessionID?: string; hasText: boolean; toolNames: string[] },
+      next: () => void,
+    ): string | void
     /** Agent 事件统一出口（Mira AgentEvent 透传） @mode emit */
     "agent/event"(event: AgentEvent): void
     /** Agent 注册（ctx.agents.announce，scope-target 广播） @mode emit */
@@ -175,6 +186,7 @@ export const MiraEvents = {
   AGENT_PRE_STEP: "agent/pre-step",
   AGENT_REQUEST: "agent/request",
   AGENT_TURN_STOPPING: "agent/turn-stopping",
+  AGENT_STEP_END: "agent/step-end",
   AGENT_EVENT: "agent/event",
   AGENT_CREATED: "agent/created",
   AGENT_DISPOSED: "agent/disposed",
