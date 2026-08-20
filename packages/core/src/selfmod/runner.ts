@@ -167,6 +167,24 @@ export class DynamicPluginRunner {
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error)
       this.registry.markFailed(pluginId, packageId, msg)
+      // 会话内自动回滚 last-known-good：update 时旧版本已被上方 stop() 卸载，插件不再运行，
+      // 用 WAL 记录的 prevPackageId 立即重新激活，不等下次启动 recoverPending。
+      // 递归安全：回滚 run 失败时 currentPackageId 已被清除，prevPackageId 计算为 null，不再递归。
+      if (txn?.prevPackageId) {
+        try {
+          const rollback = await this.run(sessionId, pluginId, txn.prevPackageId as PackageId, "run", { recoveryStore: recovery })
+          if (rollback.ok) {
+            // 回滚成功：new run 内部已 begin 覆盖原事务并 seal→markHealthy→clear，此处直接返回，
+            // 必须跳过下方对原事务的 recover（否则会对已删除的事务执行 recover，requirePhase 检测 0 行抛"状态非法"）
+            return {
+              ok: true,
+              message: `插件 ${pluginId} 更新到 ${packageId} 失败（${msg}），已自动回滚到上一健康版本 ${txn.prevPackageId}`,
+              pluginId,
+              packageId: txn.prevPackageId,
+            }
+          }
+        } catch { /* 回滚失败则继续走下方原始错误返回 */ }
+      }
       // 失败路径与 isPlugin 分支对齐：begin 之后的一切异常都回滚 WAL（prepared → rolled-back）。
       // recover 自身失败不掩盖原始错误（残留 prepared 由启动时 recoverPending 兜底）。
       if (txn) await recovery.recover(sessionId, txn.transactionId, "install-failed").catch(() => {})
@@ -230,7 +248,7 @@ export class DynamicPluginRunner {
   }
 
   /** 查看插件详情（含版本列表，不含源码） */
-  inspect(sessionId: string, pluginId: PluginId): unknown | null {
+  inspect(sessionId: string, pluginId: PluginId): unknown {
     if (!this.registry.owns(pluginId, sessionId)) return null
     const p = this.registry.get(pluginId)!
     return {

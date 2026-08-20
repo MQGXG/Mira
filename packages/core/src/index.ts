@@ -137,7 +137,7 @@ export { beginDesktopRun, readLastRun, defaultCrashStatePath } from "./system/cr
 export type { CrashRun, CrashRunRecord, UnreadableCrashRun } from "./system/crash-evidence"
 
 // 启动健康检查
-export { waitForHealth, rendererBootWindow, RENDERER_BOOT_TIMEOUT_MS } from "./system/health"
+export { rendererBootWindow, RENDERER_BOOT_TIMEOUT_MS } from "./system/health"
 
 // 新模块
 export { featureFlags, isFeatureEnabled } from "./config/flags"

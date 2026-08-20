@@ -25,6 +25,8 @@ export interface ServerManagerOptions {
   userData?: string
   /** 本地模型资源目录（打包后 resources/models，开发时仓库内 resources/models） */
   modelDir?: string
+  /** 应用版本（注入子进程 MIRA_VERSION，供崩溃标记 / /api/health 报告真实版本） */
+  version?: string
 }
 
 const DEFAULT_OPTIONS: Required<Omit<ServerManagerOptions, "serverEntry">> & { serverEntry: string } = {
@@ -35,6 +37,16 @@ const DEFAULT_OPTIONS: Required<Omit<ServerManagerOptions, "serverEntry">> & { s
   useTsx: false,
   userData: "",
   modelDir: "",
+  version: "",
+}
+
+/** 子进程 spawn env：注入 ELECTRON_RUN_AS_NODE + 可选 MIRA_VERSION（undefined 时不注入，避免写成字面量 "undefined"） */
+function spawnEnv(version: string): NodeJS.ProcessEnv {
+  return {
+    ...process.env,
+    ELECTRON_RUN_AS_NODE: "1",
+    ...(version ? { MIRA_VERSION: version } : {}),
+  }
 }
 
 export class ServerManager {
@@ -105,7 +117,7 @@ export class ServerManager {
     if (isPackaged) {
       this.process = spawn(process.execPath, [entry, ...baseArgs], {
         stdio: ["ignore", "pipe", "pipe"],
-        env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" },
+        env: spawnEnv(opts.version),
         shell: false,
         windowsHide: true,
       })
@@ -126,7 +138,7 @@ export class ServerManager {
     this.process = spawn(runner, devArgs, {
       stdio: ["ignore", "pipe", "pipe"],
       // process.execPath 是 Electron 二进制，需 ELECTRON_RUN_AS_NODE=1 才表现为 node
-      env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" },
+      env: spawnEnv(opts.version),
       shell: !hasTsxCli,
       windowsHide: true,
     })

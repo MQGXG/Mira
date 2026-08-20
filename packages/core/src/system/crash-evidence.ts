@@ -55,7 +55,7 @@ function lstatOptional(filename: string): ReturnType<typeof lstatSync> | undefin
 
 function assertOwnedMarker(stats: NonNullable<ReturnType<typeof lstatSync>>): void {
   if (stats.isSymbolicLink() || !stats.isFile() || stats.nlink > 1) {
-    throw new Error("mira: active run marker is invalid")
+    throw new Error("mira: 活动运行标记无效")
   }
 }
 
@@ -103,7 +103,7 @@ function writeCurrentRun(statePath: string, currentRun: StoredCrashRun): void {
   mkdirSync(directory, { recursive: true, mode: PRIVATE_DIRECTORY_MODE })
   const directoryStats = lstatSync(directory)
   if (directoryStats.isSymbolicLink() || !directoryStats.isDirectory()) {
-    throw new Error("mira: active run directory is invalid")
+    throw new Error("mira: 活动运行目录无效")
   }
   try { chmodSync(directory, PRIVATE_DIRECTORY_MODE) } catch { /* 平台可能不支持 chmod */ }
 

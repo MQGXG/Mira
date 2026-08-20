@@ -10,7 +10,9 @@
 import { app, dialog } from "electron";
 import type { MessageBoxOptions } from "electron";
 import { rendererBootWindow, RENDERER_BOOT_TIMEOUT_MS } from "@mira/core/system/health";
+import { clearCrashMarker, defaultCrashStatePath } from "@mira/core/system/crash-evidence";
 import { getMainWindow } from "../managers/window-manager";
+import { stopSidecar } from "./sidecar-bridge";
 
 let windowBootTimer: NodeJS.Timeout | undefined;
 let rendererBooted = false;
@@ -29,10 +31,18 @@ export function startRendererBootWindow(): void {
       };
       const mainWin = getMainWindow();
       void (mainWin ? dialog.showMessageBox(mainWin, options) : dialog.showMessageBox(options))
-        .then(({ response }) => {
-          // relaunch 不会退出应用，必须配对 exit（不能用 quit：close 拦截依赖 isQuitting，
-          // 仅 tray-manager 设置，quit 会被 preventDefault 卡住）
-          if (response === 0) {
+        .then(async ({ response }) => {
+          if (response !== 0) return;
+          try {
+            // 先停 sidecar：relaunch+exit(0) 绕过 before-quit，stopSidecar 不会自动执行，
+            // 不先停会泄漏 sidecar 孤儿进程（win32 taskkill /T /F 杀进程树）
+            await stopSidecar();
+          } finally {
+            // taskkill 强杀不触发 sidecar 的 exit 清理，exit(0) 又绕过 before-quit 的
+            // clearCrashMarker——这里显式清标记，避免新实例误报"上次未干净退出"
+            clearCrashMarker(defaultCrashStatePath(app.getPath("userData")));
+            // relaunch 不会退出应用，必须配对 exit（不能用 quit：close 拦截依赖 isQuitting，
+            // 仅 tray-manager 设置，quit 会被 preventDefault 卡住）
             app.relaunch();
             app.exit(0);
           }
@@ -40,6 +50,8 @@ export function startRendererBootWindow(): void {
         .catch(() => {});
     }
   }, RENDERER_BOOT_TIMEOUT_MS + 1000);
+  // unref：仅剩该计时器时（如窗口已销毁）不阻塞进程退出
+  windowBootTimer.unref();
 }
 
 /** renderer 首帧就绪上报：取消 boot 超时提示 */

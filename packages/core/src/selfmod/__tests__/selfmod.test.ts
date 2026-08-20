@@ -145,6 +145,30 @@ describe("运行期自修改（生命周期）", () => {
     expect(result.message).toContain("未返回有效插件形状")
   })
 
+  it("update 失败自动回滚到上一健康版本（last-known-good 会话内恢复）", async () => {
+    const ctx = await createMiraContext()
+    const runner = new DynamicPluginRunner(ctx)
+    // 先激活健康版本 v1
+    const { pluginId, packageId: v1 } = runner.define("s4b", "rollback-plugin", "回滚测试", HOOK_PLUGIN_CODE)
+    const first = await runner.run("s4b", pluginId, v1, "run")
+    expect(first.ok).toBe(true)
+
+    // 追加坏版本 v2（求值即抛错 → 走 catch 自动回滚路径）
+    const v2 = runner.getRegistry().addPackage(pluginId, "rollback-plugin", "v2 坏版本", `throw new Error('v2 boom')`)
+    const update = await runner.run("s4b", pluginId, v2, "update")
+    expect(update.ok).toBe(true)
+    expect(update.packageId).toBe(v1)
+    expect(update.message).toContain("已自动回滚到上一健康版本")
+
+    // 插件仍以 v1 运行（hook 生效），当前版本切回 v1
+    const seen: unknown[] = []
+    ctx.on("selfmod/test-event", () => { seen.push("external"); return "external" })
+    const result = await (ctx as unknown as { serial(name: string, ...a: unknown[]): Promise<unknown> }).serial("selfmod/test-event")
+    expect(result).toBe("plugin-fired")
+    expect(seen).toHaveLength(0)
+    expect(runner.list("s4b")[0].currentPackageId).toBe(v1)
+  })
+
   it("审批门：selfmod 权限 deny 时拒绝激活（防御性检查）", async () => {
     const ctx = await createMiraContext({
       permissions: [

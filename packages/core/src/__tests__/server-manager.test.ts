@@ -66,6 +66,7 @@ vi.mock('child_process', () => {
 })
 
 import { ServerManager } from '../system/server-manager'
+import { spawn } from 'child_process'
 
 /** 最近一次 spawn 的子进程 */
 function lastChild(): (typeof mocks.children)[number] {
@@ -148,5 +149,30 @@ describe('ServerManager', () => {
     const c2 = lastChild()
     emitReady(c2, 4444, 't4')
     expect((await p2).port).toBe(4444)
+  })
+
+  test('spawn env 注入 MIRA_VERSION（崩溃标记/health 版本不再恒为 dev）', async () => {
+    const sm = new ServerManager({ ...BASE_OPTS, version: '9.9.9-test' })
+    const ready = sm.start()
+    emitReady(lastChild(), 5555, 't5')
+    await ready
+
+    const calls = vi.mocked(spawn).mock.calls
+    const lastCall = calls[calls.length - 1]
+    const env = lastCall[2].env as NodeJS.ProcessEnv
+    expect(env.ELECTRON_RUN_AS_NODE).toBe('1')
+    expect(env.MIRA_VERSION).toBe('9.9.9-test')
+  })
+
+  test('未传 version 时不注入 MIRA_VERSION（避免字面量 "undefined"）', async () => {
+    const sm = new ServerManager(BASE_OPTS)
+    const ready = sm.start()
+    emitReady(lastChild(), 6666, 't6')
+    await ready
+
+    const calls = vi.mocked(spawn).mock.calls
+    const lastCall = calls[calls.length - 1]
+    const env = lastCall[2].env as NodeJS.ProcessEnv
+    expect(env.MIRA_VERSION).toBeUndefined()
   })
 })

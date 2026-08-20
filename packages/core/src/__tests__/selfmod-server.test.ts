@@ -7,7 +7,11 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest"
 import { createMiraContext } from "../framework/services"
 import { setupSelfModification, DynamicPluginRunner } from "../selfmod"
 import { startServer } from "../system/server"
+import { initPlatformPaths } from "../config/paths"
 import type { Server } from "http"
+import * as fs from "fs"
+import * as os from "os"
+import * as path from "path"
 
 const HOOK_PLUGIN_CODE = `
   return { name: 'server-plugin', apply(ctx) { ctx.on('x', () => {}) } }
@@ -32,6 +36,10 @@ async function post(path: string, body: unknown): Promise<{ status: number; data
 
 describe("selfmod HTTP 端点", () => {
   beforeAll(async () => {
+    // 隔离测试 DB：createMiraContext 会初始化 SQLite（默认 userData=process.cwd()，
+    // 不隔离会污染仓库 cwd/mira.db），仿照 selfmod.test.ts 的模式指到临时目录
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "mira-selfmod-server-"))
+    initPlatformPaths({ userData: tmp })
     serverCtx = await createMiraContext()
     runner = setupSelfModification(serverCtx)
     const { server: s, port, token } = await startServer({ port: 0, host: "127.0.0.1" })

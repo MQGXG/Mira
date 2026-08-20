@@ -27,6 +27,9 @@ export const RECOVERY_PHASES = [
   "rolled-back",
   "manual-recovery-required",
 ] as const
+// 注：verifying / recovery-pending / manual-recovery-required 三个相位当前不产生（激活即时
+// 生效：seal→markHealthy→clear 一气呵成，无需人工验证相位），为 DSH 状态机契约保留。
+// PENDING_PHASES 与 recover() 的 WHERE 子句引用部分相位，改动需同步评估。
 
 export type RecoveryPhase = (typeof RECOVERY_PHASES)[number]
 
@@ -256,6 +259,12 @@ export interface RecoverPendingOptions {
  */
 export async function recoverPending(options: RecoverPendingOptions): Promise<number> {
   const store = options.store ?? pluginRecoveryStore
+  // 清理 verified 孤儿行：正常路径 seal→markHealthy→clear 一气呵成，残留 verified 说明
+  // markHealthy 与 clear 之间崩溃/写失败（极小概率）；这些行已了结、无需恢复，
+  // 启动时顺带删除，避免永不清理、无上限堆积。
+  await store.ensureTable()
+  const db = await getDbAsync()
+  db.run(`DELETE FROM ${RECOVERY_TABLE} WHERE phase = 'verified'`)
   const pending = await store.pending()
   let handled = 0
   for (const txn of pending) {

@@ -53,10 +53,9 @@ export function App() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   // 启动状态：首帧完成后结束遮罩，项目数据在后台加载
   const [booted, setBooted] = useState(false);
-  // Core sidecar 连接状态：遮罩 phase 数据源（connected 前为 connecting）
-  const [sidecarReady, setSidecarReady] = useState(false);
-  // Core sidecar 断连遮罩：reconnecting 时显示"连接中断，正在重连"
-  const [sidecarReconnecting, setSidecarReconnecting] = useState(false);
+  // Core sidecar 连接状态：单状态描述同一事件流（connected 前为 connecting；
+  // reconnecting 显示断连遮罩；failed 为重连放弃的终态，停留显示 failed 遮罩）
+  const [sidecarStatus, setSidecarStatus] = useState<"connecting" | "connected" | "reconnecting" | "failed">("connecting");
   const sidecarWasDown = useRef(false);
 
   const loadProjects = useCallback(async () => {
@@ -133,15 +132,15 @@ export function App() {
     const off = window.electronAPI.onSidecarStatus((status) => {
       if (status === "reconnecting") {
         sidecarWasDown.current = true;
-        setSidecarReady(false);
-        setSidecarReconnecting(true);
+        setSidecarStatus("reconnecting");
       } else if (status === "connected") {
-        setSidecarReady(true);
+        setSidecarStatus("connected");
         if (sidecarWasDown.current) {
           sidecarWasDown.current = false;
           void loadProjects();
         }
-        setSidecarReconnecting(false);
+      } else if (status === "failed") {
+        setSidecarStatus("failed");
       }
     });
     return off;
@@ -239,15 +238,17 @@ export function App() {
 
   return (
     <div className="h-screen flex flex-col" style={{ background: "var(--bg)", color: "var(--fg)" }}>
-      {/* 启动加载动画（数据就绪后自动淡出），带 Core 连接状态 */}
-      {/* 注：failed phase 当前无数据源——sidecar-bridge 只广播 connected/reconnecting，
-          启动失败走 main 侧 errorBox+quit。未来最自然的 failed 接入点是
-          sidecar-bridge.ts 重连 MAX_RECONNECT_ATTEMPTS 放弃后（当前仅 log 不广播终态）；
-          且 failed 需同时保持 visible=true 才有停留效果（否则 600ms 淡出卸载） */}
-      <StartupOverlay visible={!booted} phase={sidecarReady ? "ready" : "connecting"} />
+      {/* 启动加载动画（数据就绪后自动淡出），带 Core 连接状态；
+          failed 为终态：重连放弃后停留显示（visible=true），提示用户重启应用。
+          启动失败（serverManager.start reject）仍走 main 侧 errorBox+quit，不经过这里 */}
+      <StartupOverlay
+        visible={!booted || sidecarStatus === "failed"}
+        phase={sidecarStatus === "failed" ? "failed" : sidecarStatus === "connected" ? "ready" : "connecting"}
+        error={sidecarStatus === "failed" ? "连接重试已放弃，请重启应用恢复服务" : undefined}
+      />
 
       {/* Core 断连遮罩：自动重连中，阻止误操作 */}
-      {sidecarReconnecting && (
+      {sidecarStatus === "reconnecting" && (
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center"
           style={{ background: "rgba(0,0,0,0.35)", backdropFilter: "blur(2px)" }}

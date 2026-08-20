@@ -34,8 +34,8 @@ let isReconnecting = false
 let consecutiveFailures = 0
 let reconnectAttempts = 0
 
-/** 向所有窗口广播 sidecar 状态（断连/重连/恢复），供前端显示遮罩与自动刷新 */
-function broadcastSidecarStatus(status: "connected" | "reconnecting"): void {
+/** 向所有窗口广播 sidecar 状态（断连/重连中/恢复/放弃），供前端显示遮罩与自动刷新 */
+function broadcastSidecarStatus(status: "connected" | "reconnecting" | "failed"): void {
   for (const win of BrowserWindow.getAllWindows()) {
     if (!win.isDestroyed()) {
       win.webContents.send("sidecar:status", status)
@@ -57,7 +57,7 @@ export async function startSidecar(port = 0): Promise<{ port: number; token: str
     ? join(process.resourcesPath, "models")
     : join(app.getAppPath(), "resources", "models")
 
-  serverManager = new ServerManager({ port, useTsx, userData, modelDir })
+  serverManager = new ServerManager({ port, useTsx, userData, modelDir, version: app.getVersion() })
   const info = await serverManager.start()
   console.log(`[Sidecar] Core server ready on port ${info.port}`)
   broadcastSidecarStatus("connected")
@@ -150,6 +150,8 @@ async function reconnect(): Promise<void> {
 
     if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
       console.error(`[Sidecar] Reconnect aborted after ${reconnectAttempts} attempts; please restart the app`)
+      // 广播终态失败：让前端显示 failed 遮罩（此前仅 log，App 侧 failed phase 无数据源）
+      broadcastSidecarStatus("failed")
       isReconnecting = false
       return
     }

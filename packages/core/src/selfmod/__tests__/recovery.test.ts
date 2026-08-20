@@ -7,6 +7,7 @@ import { PluginRecoveryStore, RECOVERY_PHASES, recoverPending } from "../recover
 import { DynamicPluginRunner } from "../runner"
 import { SelfModStorage } from "../storage"
 import { createMiraContext } from "../../framework/services"
+import { getDbAsync } from "../../system/database"
 
 async function freshStore(): Promise<PluginRecoveryStore> {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "mira-recovery-"))
@@ -197,5 +198,27 @@ describe("recoverPending（崩溃残留处理）", () => {
     expect(runner.list("s1").find((p) => p.pluginId === p2.pluginId)?.currentPackageId).toBeUndefined()
     // 两条都被处理，未决事务清空（循环未被 p1 的中途异常中断）
     expect(await store.pending()).toHaveLength(0)
+  })
+
+  it("启动时清理 verified 孤儿行（markHealthy→clear 间崩溃残留，避免无上限堆积）", async () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "mira-recover-orphan-"))
+    initPlatformPaths({ userData: tmp })
+    const store = new PluginRecoveryStore()
+    const ctx = await createMiraContext()
+    const runner = new DynamicPluginRunner(ctx, {}, new SelfModStorage())
+
+    // 制造 verified 孤儿行：begin→seal→markHealthy 但不 clear（模拟 markHealthy 后崩溃）
+    const p = runner.define("s-orphan", "p", "孤儿", HOOK_PLUGIN_CODE)
+    const txn = await store.begin("s-orphan", p.pluginId, "run", p.packageId, null)
+    await store.seal("s-orphan", txn.transactionId)
+    await store.markHealthy("s-orphan", txn.transactionId)
+    // verified 不在 pending 查询范围（不会被恢复处理），但残留在表中
+    expect(await store.pending()).toHaveLength(0)
+
+    // 启动恢复流程应顺带清除 verified 孤儿行
+    await recoverPending({ store, runner })
+    const db = await getDbAsync()
+    const res = db.exec(`SELECT COUNT(*) FROM selfmod_recovery WHERE phase = 'verified'`)
+    expect(res[0].values[0][0]).toBe(0)
   })
 })

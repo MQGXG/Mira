@@ -16,9 +16,13 @@ interface StartupOverlayProps {
 export function StartupOverlay({ visible, phase = "connecting", error }: StartupOverlayProps) {
   const [mounted, setMounted] = useState(true);
 
-  // 淡出动画（600ms）结束后卸载，避免遮罩残留拦截交互
+  // 淡出动画（600ms）结束后卸载，避免遮罩残留拦截交互；
+  // visible 重新变 true（如启动中保持 / sidecar failed 后重显）时恢复挂载
   useEffect(() => {
-    if (visible) return;
+    if (visible) {
+      setMounted(true);
+      return;
+    }
     const timer = setTimeout(() => setMounted(false), 600);
     return () => clearTimeout(timer);
   }, [visible]);

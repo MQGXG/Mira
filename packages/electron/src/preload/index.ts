@@ -219,9 +219,9 @@ const electronAPI = {
     },
   },
 
-  /** 监听 Core sidecar 连接状态（断连/重连中/恢复），供前端显示遮罩并自动刷新 */
-  onSidecarStatus: (callback: (status: "connected" | "reconnecting") => void) => {
-    const handler = (_event: IpcRendererEvent, status: "connected" | "reconnecting") => callback(status)
+  /** 监听 Core sidecar 连接状态（断连/重连中/恢复/放弃），供前端显示遮罩并自动刷新 */
+  onSidecarStatus: (callback: (status: "connected" | "reconnecting" | "failed") => void) => {
+    const handler = (_event: IpcRendererEvent, status: "connected" | "reconnecting" | "failed") => callback(status)
     ipcRenderer.on("sidecar:status", handler)
     return () => ipcRenderer.removeListener("sidecar:status", handler)
   },
