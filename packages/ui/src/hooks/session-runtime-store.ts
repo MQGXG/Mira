@@ -15,6 +15,7 @@ import {
   type MiraPart,
 } from "../chat/mira-runtime"
 import { handleStreamEvent, clearChannelBuffer, type StreamEventContext } from "./stream-events"
+import { extractWidgetBlocks } from "../components/assistant-ui/widget-utils"
 import { getProviderById, loadSettings as getSettings } from "../sidebar/provider-data"
 import { decideVisionPolicy } from "../sidebar/provider-model"
 import type { ModelOption } from "../chat/ModelSelector"
@@ -263,7 +264,7 @@ async function parseStoredMessageContent(content: string): Promise<MiraMessage["
       if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
         const parts: MiraMessage["parts"] = [];
         if (typeof parsed.text === "string" && parsed.text) {
-          parts.push({ type: "text", text: parsed.text });
+          parts.push(...extractTextWithWidgets(String(parsed.text)));
         }
         // 会话附件恢复：读回图片（异步）
         if (Array.isArray(parsed.images)) {
@@ -300,7 +301,27 @@ async function parseStoredMessageContent(content: string): Promise<MiraMessage["
       }
     } catch { /* 非 JSON 按纯文本 */ }
   }
-  return [{ type: "text", text: content }];
+  return extractTextWithWidgets(content);
+}
+
+/**
+ * 从历史文本中提取 widget 代码块（```html/```widget → widget part），
+ * 与实时流 extractWidgetsFromMessage 行为一致——保证重启后历史消息仍能渲染可视化组件。
+ */
+function extractTextWithWidgets(text: string): MiraMessage["parts"] {
+  const { cleanText, widgets } = extractWidgetBlocks(text);
+  const parts: MiraMessage["parts"] = [];
+  if (cleanText) {
+    parts.push({ type: "text", text: cleanText });
+  }
+  for (const html of widgets) {
+    parts.push({ type: "widget", html, text: "widget" });
+  }
+  // 全空（纯 widget 块且无正文）时保底返回空 parts 即可；无 widget 时返回原文
+  if (parts.length === 0 && text) {
+    parts.push({ type: "text", text });
+  }
+  return parts;
 }
 
 // ── 发送 / 停止 / 释放 ───────────────────────────────
