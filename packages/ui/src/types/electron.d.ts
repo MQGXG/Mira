@@ -23,6 +23,29 @@ export interface ElectronAPI {
   isEncryptionAvailable: () => Promise<boolean>;
   platform: string;
 
+  // 扩展管理（Skill 目录/启用禁用 + MCP/插件状态，设置页「扩展」用）
+  skill: {
+    listSkills: () => Promise<Array<{ name: string; description: string; category?: string }>>;
+    listAll: () => Promise<Array<{ name: string; description: string; category?: string; path: string; source: string; enabled: boolean; validName: boolean }>>;
+    listDirs: () => Promise<Array<{ path: string; source: string; exists: boolean; removable: boolean }>>;
+    addDir: (dir: string) => Promise<{ success: boolean; error?: string }>;
+    removeDir: (dir: string) => Promise<{ success: boolean; error?: string }>;
+    setEnabled: (name: string, enabled: boolean) => Promise<{ success: boolean; error?: string }>;
+    uninstall: (name: string) => Promise<{ success: boolean; error?: string; path?: string }>;
+    import: (payload: { fileName: string; zipBase64?: string; mdContent?: string; folderPath?: string; confirmed?: boolean; autoInstall?: boolean; skipRiskCheck?: boolean }) => Promise<{
+      success: boolean;
+      needsConfirm?: boolean;
+      riskLevel: "low" | "high";
+      risks: Array<{ level: "info" | "warning"; message: string }>;
+      name?: string;
+      path?: string;
+      error?: string;
+    }>;
+    openPath: (path: string) => Promise<{ success: boolean; error?: string }>;
+    mcpStatus: () => Promise<Array<{ name: string; connected: boolean; toolCount: number }>>;
+    plugins: () => Promise<Array<{ sessionId: string; pluginId: string; packageId: string; name: string }>>;
+  };
+
   // 配置系统（JSON 文件 + 环境变量）
   config: {
     get: (workspace?: string) => Promise<{ provider: string; model: string; apiUrl: string; mode: string; apiKeyFrom: "env" | "file" | "none"; apiKey?: string; headers?: Record<string, string>; options?: Record<string, unknown> }>;

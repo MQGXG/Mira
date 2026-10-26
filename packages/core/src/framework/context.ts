@@ -219,6 +219,8 @@ export interface MCPService {
   init(configs: MCPServerConfig[]): Promise<void>
   refresh(): Promise<void>
   listTools(): Array<{ name: string; description: string; inputSchema: Record<string, unknown> }>
+  /** 服务器连接状态（设置页「扩展」tab 用） */
+  getStatus(): Array<{ name: string; connected: boolean; toolCount: number }>
 }
 
 /** Provider 目录服务：模型/能力数据（静态 ProviderCatalog 的实例化视图） */
@@ -360,6 +362,29 @@ export interface LSPService {
 /** Skill 服务：扫描/加载（目录可配置，插件可注册目录） */
 export interface SkillService {
   list(): Array<{ name: string; description: string; category?: string }>
+  /** 全量 skill（含禁用项），带来源/路径/命名规范校验（设置页「扩展」用） */
+  listAll(options?: import("../skill/skill-loader").ScanOptions): Array<{
+    name: string
+    description: string
+    category?: string
+    path: string
+    source: import("../skill/skill-loader").SkillSource
+    enabled: boolean
+    validName: boolean
+  }>
+  /** 目录清单（内置/用户/插件/全局兼容） */
+  listDirs(): Array<{ path: string; source: string; exists: boolean; removable: boolean }>
+  /** 添加/移除持久化用户目录；启用/禁用 skill（写入 skills.json） */
+  addUserDir(dir: string): { success: boolean; error?: string }
+  removeUserDir(dir: string): { success: boolean; error?: string }
+  setEnabled(name: string, enabled: boolean): { success: boolean; error?: string }
+  /** 卸载 skill（删除其目录，带安全约束） */
+  uninstall(name: string): { success: boolean; error?: string; path?: string }
+  /** 导入 skill（zip/.md/文件夹三选一，高风险或 autoInstall=false 需 confirmed=true；skipRiskCheck=true 跳过风险确认） */
+  importSkill(
+    input: { fileName: string; zipBase64?: string; mdContent?: string; folderPath?: string },
+    options?: { confirmed?: boolean; autoInstall?: boolean; skipRiskCheck?: boolean },
+  ): Promise<{ success: boolean; needsConfirm?: boolean; riskLevel: "low" | "high"; risks: Array<{ level: "info" | "warning"; message: string }>; name?: string; path?: string; error?: string }>
   load(name: string): import("../skill/skill-loader").SkillContent | null
   loadFile(name: string, filePath: string): string | null
   getSkillDirs(): string[]

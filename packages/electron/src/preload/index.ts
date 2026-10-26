@@ -37,6 +37,22 @@ const electronAPI = {
       ipcRenderer.invoke("config:saveVoiceConfig", defaults),
   },
 
+  // 扩展管理（Skill 目录/启用禁用 + MCP/插件状态，设置页「扩展」用）
+  skill: {
+    listSkills: () => ipcRenderer.invoke("skill:listSkills"),
+    listAll: () => ipcRenderer.invoke("skill:listAll"),
+    listDirs: () => ipcRenderer.invoke("skill:listDirs"),
+    addDir: (dir: string) => ipcRenderer.invoke("skill:addDir", dir),
+    removeDir: (dir: string) => ipcRenderer.invoke("skill:removeDir", dir),
+    setEnabled: (name: string, enabled: boolean) => ipcRenderer.invoke("skill:toggle", name, enabled),
+    uninstall: (name: string) => ipcRenderer.invoke("skill:uninstall", name),
+    import: (payload: { fileName: string; zipBase64?: string; mdContent?: string; folderPath?: string; confirmed?: boolean; autoInstall?: boolean; skipRiskCheck?: boolean }) =>
+      ipcRenderer.invoke("skill:import", payload),
+    openPath: (path: string) => ipcRenderer.invoke("skill:openPath", path),
+    mcpStatus: () => ipcRenderer.invoke("extensions:mcpStatus"),
+    plugins: () => ipcRenderer.invoke("extensions:plugins"),
+  },
+
   // TS Core 会话/项目
   ts: {
     listProjects: () => ipcRenderer.invoke("ts:listProjects"),

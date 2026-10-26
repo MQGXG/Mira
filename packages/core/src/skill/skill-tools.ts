@@ -70,6 +70,10 @@ export const skillViewTool = make({
     if (!skill) {
       return { success: false, error: `Skill '${input.name}' 未找到。用 skills_list 查看所有可用的 Skill。` }
     }
+    // 已禁用的 skill 拒绝加载（设置页「扩展」关闭开关后即时生效）
+    if (skill.meta.enabled === false) {
+      return { success: false, error: `Skill '${input.name}' 已被禁用。可在设置 → 扩展 → 技能 中重新启用。` }
+    }
 
     const parts: string[] = []
     parts.push(`# Skill: ${skill.meta.name}`)

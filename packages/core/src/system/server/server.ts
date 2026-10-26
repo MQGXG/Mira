@@ -90,6 +90,15 @@ import {
   handleDreamGetKnowledge,
   handleDreamToText,
   handleSkillList,
+  handleSkillListAll,
+  handleSkillDirs,
+  handleSkillAddDir,
+  handleSkillRemoveDir,
+  handleSkillToggle,
+  handleSkillUninstall,
+  handleSkillImport,
+  handleMcpStatus,
+  handleSelfmodPluginsAll,
   handleSelfmodListPlugins,
   handleSelfmodGetClientCode,
   handleSelfmodStatus,
@@ -103,11 +112,23 @@ export interface ServerOptions {
   authToken?: string
 }
 
+/** JSON body 大小上限（64MB：skill zip 导入的 base64 传输需要；防御性限制防内存滥用） */
+const MAX_BODY_SIZE = 64 * 1024 * 1024
+
 /** 解析 JSON body */
 function parseBody(req: http.IncomingMessage): Promise<unknown> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = []
-    req.on("data", (chunk: Buffer) => chunks.push(chunk))
+    let total = 0
+    req.on("data", (chunk: Buffer) => {
+      total += chunk.length
+      if (total > MAX_BODY_SIZE) {
+        reject(new Error("Request body too large"))
+        req.destroy()
+        return
+      }
+      chunks.push(chunk)
+    })
     req.on("end", () => {
       try {
         const raw = Buffer.concat(chunks).toString("utf-8")
@@ -894,6 +915,74 @@ async function routeRequest(
     case "/api/skills": {
       if (req.method !== "GET") { errorResponse(res, 405, "Method not allowed"); return }
       jsonResponse(res, 200, handleSkillList())
+      return
+    }
+
+    // ── Skill 全量列表（设置页「扩展」：含禁用项 + 来源/路径） ──
+    case "/api/skills/all": {
+      if (req.method !== "GET") { errorResponse(res, 405, "Method not allowed"); return }
+      jsonResponse(res, 200, await handleSkillListAll())
+      return
+    }
+
+    // ── Skill 目录清单 ──
+    case "/api/skills/dirs": {
+      if (req.method !== "GET") { errorResponse(res, 405, "Method not allowed"); return }
+      jsonResponse(res, 200, await handleSkillDirs())
+      return
+    }
+
+    // ── 添加用户 skill 目录（POST { dir }，持久化到 skills.json） ──
+    case "/api/skills/dirs/add": {
+      if (req.method !== "POST") { errorResponse(res, 405, "Method not allowed"); return }
+      const body = await parseBody(req) as RequestBody
+      jsonResponse(res, 200, await handleSkillAddDir(body as { dir?: string }))
+      return
+    }
+
+    // ── 移除用户 skill 目录（POST { dir }，只移除注册不删文件） ──
+    case "/api/skills/dirs/remove": {
+      if (req.method !== "POST") { errorResponse(res, 405, "Method not allowed"); return }
+      const body = await parseBody(req) as RequestBody
+      jsonResponse(res, 200, await handleSkillRemoveDir(body as { dir?: string }))
+      return
+    }
+
+    // ── 启用/禁用 skill（POST { name, enabled }） ──
+    case "/api/skills/toggle": {
+      if (req.method !== "POST") { errorResponse(res, 405, "Method not allowed"); return }
+      const body = await parseBody(req) as RequestBody
+      jsonResponse(res, 200, await handleSkillToggle(body))
+      return
+    }
+
+    // ── 卸载 skill（POST { name }，删除其目录） ──
+    case "/api/skills/uninstall": {
+      if (req.method !== "POST") { errorResponse(res, 405, "Method not allowed"); return }
+      const body = await parseBody(req) as RequestBody
+      jsonResponse(res, 200, await handleSkillUninstall(body))
+      return
+    }
+
+    // ── 导入 skill（POST { fileName, zipBase64|mdContent, confirmed }，自动解压安装） ──
+    case "/api/skills/import": {
+      if (req.method !== "POST") { errorResponse(res, 405, "Method not allowed"); return }
+      const body = await parseBody(req) as RequestBody
+      jsonResponse(res, 200, await handleSkillImport(body as { fileName?: string; zipBase64?: string; mdContent?: string; confirmed?: boolean; autoInstall?: boolean; skipRiskCheck?: boolean }))
+      return
+    }
+
+    // ── 扩展页：MCP 服务器连接状态 ──
+    case "/api/extensions/mcp": {
+      if (req.method !== "GET") { errorResponse(res, 405, "Method not allowed"); return }
+      jsonResponse(res, 200, await handleMcpStatus())
+      return
+    }
+
+    // ── 扩展页：运行期自修改插件全局列表 ──
+    case "/api/extensions/plugins": {
+      if (req.method !== "GET") { errorResponse(res, 405, "Method not allowed"); return }
+      jsonResponse(res, 200, await handleSelfmodPluginsAll())
       return
     }
 

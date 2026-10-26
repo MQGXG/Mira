@@ -11,7 +11,8 @@ import { getJsonSchema } from "../../shared/tool"
 import { loadWorkspacePermissions, saveWorkspacePermission } from "../permission/store"
 import { buildInstructionSystemPrompt } from "../instruction"
 import { matchSkillCommand, buildSkillInvocationMessage } from "../../skill/skill-commands"
-import { loadSkill, scanSkills } from "../../skill/skill-loader"
+import { loadSkill, scanSkills, getSkillsDir, isValidSkillName } from "../../skill/skill-loader"
+import type { SkillSource, ScanOptions } from "../../skill/skill-loader"
 import { initDatabase, flushSave } from "../database"
 import {
   listProjects,
@@ -45,7 +46,7 @@ import type { TaskStatus } from "../../task/tracker"
 import { answerQuestion, getPendingQuestions } from "../../tools/interaction/question"
 import { MiraGraphService } from "../../services/graph"
 import { createMiraContext } from "../../framework/services"
-import { setupSelfModification, getDynamicPluginRunner } from "../../selfmod"
+import { setupSelfModification, getDynamicPluginRunner, selfModStorage } from "../../selfmod"
 import { createScope, type Scope } from "../../scope/index"
 import type { Context as MiraContext } from "../../vendor/cordis/index"
 
@@ -930,12 +931,145 @@ export function handleDreamToText() {
 
 // ── Skill 列表（经 ctx.skill；无 ctx 冷启动回退默认目录扫描） ──
 
+/** ctx.skill 服务的结构化视图（避免直接依赖具体实现类） */
+interface SkillServiceView {
+  list(): Array<{ name: string; description: string; category?: string }>
+  listAll(options?: ScanOptions): Array<{
+    name: string
+    description: string
+    category?: string
+    path: string
+    source: SkillSource
+    enabled: boolean
+    validName: boolean
+  }>
+  listDirs(): Array<{ path: string; source: string; exists: boolean; removable: boolean }>
+  addUserDir(dir: string): { success: boolean; error?: string }
+  removeUserDir(dir: string): { success: boolean; error?: string }
+  setEnabled(name: string, enabled: boolean): { success: boolean; error?: string }
+  uninstall(name: string): { success: boolean; error?: string; path?: string }
+  importSkill(
+    input: { fileName: string; zipBase64?: string; mdContent?: string; folderPath?: string },
+    options?: { confirmed?: boolean; autoInstall?: boolean; skipRiskCheck?: boolean },
+  ): Promise<{ success: boolean; needsConfirm?: boolean; riskLevel: "low" | "high"; risks: Array<{ level: "info" | "warning"; message: string }>; name?: string; path?: string; error?: string }>
+}
+
+function getSkillService(): SkillServiceView | undefined {
+  return miraContext?.get("skill")
+}
+
+/** 仅启用 skill（聊天斜杠命令面板用，行为兼容） */
 export function handleSkillList() {
-  const svc = miraContext?.get("skill") as { list(): Array<{ name: string; description: string; category?: string }> } | undefined
+  const svc = getSkillService()
   if (svc) return svc.list()
   return scanSkills().map((s) => ({
     name: s.name,
     description: s.description,
     category: s.category ?? undefined,
   }))
+}
+
+/** 全量 skill（含禁用项 + 来源/路径/命名校验，设置页「扩展」用） */
+export async function handleSkillListAll(options: ScanOptions = {}) {
+  await getMiraContext()
+  const svc = getSkillService()
+  if (svc) return svc.listAll(options)
+  return scanSkills([], { ...options, includeDisabled: true }).map((s) => ({
+    name: s.name,
+    description: s.description,
+    category: s.category ?? undefined,
+    path: s.path,
+    source: s.source,
+    enabled: s.enabled,
+    validName: isValidSkillName(s.name),
+  }))
+}
+
+/** skill 目录清单 */
+export async function handleSkillDirs() {
+  await getMiraContext()
+  const svc = getSkillService()
+  if (svc) return svc.listDirs()
+  return [{ path: getSkillsDir(), source: "mira", exists: true, removable: false }]
+}
+
+/** 添加用户 skill 目录（持久化到 skills.json） */
+export async function handleSkillAddDir(body: { dir?: string }) {
+  await getMiraContext()
+  const svc = getSkillService()
+  if (!svc) return { success: false, error: "Skill 服务未就绪" }
+  if (!body?.dir) return { success: false, error: "缺少 dir 参数" }
+  return svc.addUserDir(body.dir)
+}
+
+/** 移除用户 skill 目录（只移除注册，不删文件） */
+export async function handleSkillRemoveDir(body: { dir?: string }) {
+  await getMiraContext()
+  const svc = getSkillService()
+  if (!svc) return { success: false, error: "Skill 服务未就绪" }
+  if (!body?.dir) return { success: false, error: "缺少 dir 参数" }
+  return svc.removeUserDir(body.dir)
+}
+
+/** 启用/禁用 skill（写入 skills.json disabled 名单） */
+export async function handleSkillToggle(body: { name?: string; enabled?: boolean }) {
+  await getMiraContext()
+  const svc = getSkillService()
+  if (!svc) return { success: false, error: "Skill 服务未就绪" }
+  if (!body?.name || typeof body.enabled !== "boolean") return { success: false, error: "缺少 name/enabled 参数" }
+  return svc.setEnabled(body.name, body.enabled)
+}
+
+/** 卸载 skill（删除其目录，带安全约束：目标必须为含 SKILL.md 的 skill 目录） */
+export async function handleSkillUninstall(body: { name?: string }) {
+  await getMiraContext()
+  const svc = getSkillService()
+  if (!svc) return { success: false, error: "Skill 服务未就绪" }
+  if (!body?.name) return { success: false, error: "缺少 name 参数" }
+  return svc.uninstall(body.name)
+}
+
+/** 导入 skill（zip/.md/文件夹三选一；高风险时返回 needsConfirm=true，UI 确认后带 confirmed=true 重试；skipRiskCheck=true 跳过风险确认直接安装） */
+export async function handleSkillImport(body: {
+  fileName?: string
+  zipBase64?: string
+  mdContent?: string
+  folderPath?: string
+  confirmed?: boolean
+  autoInstall?: boolean
+  skipRiskCheck?: boolean
+}) {
+  await getMiraContext()
+  const svc = getSkillService()
+  if (!svc) return { success: false, riskLevel: "low", risks: [], error: "Skill 服务未就绪" }
+  if (!body?.fileName) return { success: false, riskLevel: "low", risks: [], error: "缺少 fileName 参数" }
+  if (!body.zipBase64 && !body.mdContent && !body.folderPath) return { success: false, riskLevel: "low", risks: [], error: "缺少文件内容" }
+  return svc.importSkill(
+    { fileName: body.fileName, zipBase64: body.zipBase64, mdContent: body.mdContent, folderPath: body.folderPath },
+    { confirmed: body.confirmed === true, autoInstall: body.autoInstall !== false, skipRiskCheck: body.skipRiskCheck === true },
+  )
+}
+
+// ── 扩展页（设置）：MCP 状态 + 运行期插件全局列表 ──
+
+/** MCP 服务器连接状态（设置页「扩展」MCP tab） */
+export async function handleMcpStatus(): Promise<Array<{ name: string; connected: boolean; toolCount: number }>> {
+  await getMiraContext()
+  const svc = miraContext?.get("mcp") as { getStatus?(): Array<{ name: string; connected: boolean; toolCount: number }> } | undefined
+  return svc?.getStatus?.() ?? []
+}
+
+/** 运行期自修改插件全局列表（按会话聚合，设置页「扩展」插件 tab） */
+export function handleSelfmodPluginsAll(): Promise<Array<{ sessionId: string; pluginId: string; packageId: string; name: string }>> {
+  return selfModStorage.loadAll().then((rows) =>
+    rows.map((r) => {
+      const last = r.packages[r.packages.length - 1]
+      return {
+        sessionId: r.sessionId,
+        pluginId: r.pluginId,
+        packageId: last?.packageId ?? "unknown",
+        name: last?.name ?? r.pluginId,
+      }
+    }),
+  )
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, Sliders, Keyboard, Server, Layers, Info, Search } from "lucide-react";
+import { X, Sliders, Keyboard, Server, Layers, Puzzle, Info, Search } from "lucide-react";
 import type { Provider } from "../types";
 import { ProviderConfigPanel } from "../ProviderConfigPanel";
 import { ModelManager } from "../ModelManager";
@@ -8,6 +8,7 @@ import { defaultProviders, loadProviders, saveProviders, loadSettings, saveSetti
 import { SETTINGS_TABS, useSettingsSearch } from "./useSettingsSearch";
 import { GeneralSettings } from "./GeneralSettings";
 import { ShortcutsSettings } from "./ShortcutsSettings";
+import { ExtensionsPanel } from "./ExtensionsPanel";
 import { AboutSettings } from "./AboutSettings";
 import { Input } from "../../components/ui/input";
 import { Button } from "../../components/ui/button";
@@ -24,6 +25,7 @@ const tabIcons: Record<string, React.ComponentType<{ className?: string }>> = {
   shortcuts: Keyboard,
   providers: Server,
   models: Layers,
+  extensions: Puzzle,
   about: Info,
 };
 
@@ -127,6 +129,7 @@ export function SettingsDialog({ open, onClose }: Props) {
                   </div>
                 )}
                 {tab === "models" && <ModelManager providers={providers} onChange={handleProvidersChange} />}
+                {tab === "extensions" && <ExtensionsPanel />}
                 {tab === "about" && <AboutSettings />}
               </div>
             </div>

@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 
 export interface SettingsTab {
-  id: "general" | "shortcuts" | "providers" | "models" | "about";
+  id: "general" | "shortcuts" | "providers" | "models" | "extensions" | "about";
   label: string;
   keywords: string;
 }
@@ -11,6 +11,7 @@ export const SETTINGS_TABS: SettingsTab[] = [
   { id: "shortcuts", label: "快捷键", keywords: "快捷键 唤出 新建 会话 发送" },
   { id: "providers", label: "提供商", keywords: "提供商 OpenAI Claude DeepSeek Ollama API Key" },
   { id: "models", label: "模型", keywords: "模型 启用 禁用 搜索" },
+  { id: "extensions", label: "扩展", keywords: "扩展 MCP 插件 技能 skill 目录" },
   { id: "about", label: "关于", keywords: "关于 版本 技术栈" },
 ];
 

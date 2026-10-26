@@ -38,4 +38,11 @@ export class MiraMCPService extends Service implements MCPService {
     if (!mcp) return []
     return mcp.getTools?.() ?? []
   }
+
+  /** 服务器连接状态（设置页「扩展」tab 展示：名称/连接状态/工具数） */
+  getStatus(): Array<{ name: string; connected: boolean; toolCount: number }> {
+    const mcp = this.registry?.getMCPManager()
+    if (!mcp) return []
+    return mcp.getStatus?.() ?? []
+  }
 }
