@@ -327,7 +327,7 @@ function ChatInner({ ctx, selectedModel, onModelChange, agentMode, onModeChange,
       {settings.showProgressBar !== false && ctx.isRunning && <ProgressBar />}
 
       {showGraphPanel && (
-        <div className="mx-auto w-full px-6 pt-3 max-w-[760px] xl:max-w-[900px] 2xl:max-w-[1100px]">
+        <div className="mx-auto w-full px-6 pt-3 max-w-[820px] xl:max-w-[980px] 2xl:max-w-[1240px]">
           <div className="rounded-xl" style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)" }}>
             <GraphPanel
               config={{
@@ -343,7 +343,7 @@ function ChatInner({ ctx, selectedModel, onModelChange, agentMode, onModeChange,
 
       <ThreadPrimitive.Root className="flex-1 flex flex-col min-h-0">
         <ThreadPrimitive.Viewport className={`flex-1 overflow-x-hidden min-h-0 ${threadEmpty ? "overflow-y-hidden" : "overflow-y-auto scrollbar-custom"}`}>
-          <div className="flex flex-col mx-auto py-6 min-h-full px-6 w-full max-w-[760px] xl:max-w-[900px] 2xl:max-w-[1100px]">
+          <div className="flex flex-col mx-auto py-6 min-h-full px-6 w-full max-w-[820px] xl:max-w-[980px] 2xl:max-w-[1240px]">
             <AuiIf condition={(s) => s.thread.isEmpty}>
               <WelcomeScreen onSuggest={(text) => { aui.composer().setText(text); textareaRef.current?.focus(); }} />
               <div className="flex flex-wrap justify-center gap-2 max-w-sm mx-auto mt-2">
@@ -487,7 +487,8 @@ function ChatInner({ ctx, selectedModel, onModelChange, agentMode, onModeChange,
           </div>
 
           <ThreadPrimitive.ViewportFooter className="sticky bottom-0 z-10" style={{ background: "linear-gradient(to top, var(--bg) 60%, transparent)" }}>
-            <div className="mx-auto px-6 pb-4 pt-2" style={{ maxWidth: "900px" }}>
+          {/* 修改点：输入框列宽与消息列统一为响应式断点（原来固定 900px，大窗口下与消息列错位） */}
+          <div className="mx-auto w-full max-w-[820px] xl:max-w-[980px] 2xl:max-w-[1240px] px-6 pb-4 pt-2">
               {showSkills && (
                 <div className="mb-3 rounded-xl overflow-hidden" style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", boxShadow: "var(--shadow-elevated)" }}>
                   <div className="px-3 py-1.5 text-[10px] font-medium" style={{ color: "var(--fg-tertiary)", borderBottom: "1px solid var(--border-subtle)" }}>命令 — 回车执行 / ↑↓ 选择</div>

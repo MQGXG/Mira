@@ -209,7 +209,8 @@
     color: var(--foreground);
     border-radius: var(--radius-lg) var(--radius-lg) var(--radius-lg) var(--radius-sm);
     padding: 8px 16px;
-    max-width: 85%;
+    /* 修改点：85% → 100%（列内内容已受页面级 padding 限制，85% 造成右侧空白与"偏右/被裁切"观感） */
+    max-width: 100%;
     font-size: 14px;
     line-height: 1.65;
     /* 自适应内容宽度，避免短文本撑满气泡导致内容偏右 */
