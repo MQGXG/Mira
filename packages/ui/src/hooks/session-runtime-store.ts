@@ -314,8 +314,9 @@ function extractTextWithWidgets(text: string): MiraMessage["parts"] {
   if (cleanText) {
     parts.push({ type: "text", text: cleanText });
   }
-  for (const html of widgets) {
-    parts.push({ type: "widget", html, text: "widget" });
+  // 修改点：历史消息同样携带 lang 标记（对齐实时流行为）
+  for (const w of widgets) {
+    parts.push({ type: "widget", html: w.html, text: "widget", widgetLang: w.lang });
   }
   // 全空（纯 widget 块且无正文）时保底返回空 parts 即可；无 widget 时返回原文
   if (parts.length === 0 && text) {

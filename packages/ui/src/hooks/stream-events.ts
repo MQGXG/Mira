@@ -40,8 +40,9 @@ function extractWidgetsFromMessage(message: MiraMessage): MiraMessage {
         if (cleanText) {
           newParts.push({ ...part, text: cleanText });
         }
-        for (const html of widgets) {
-          newParts.push({ type: "widget", html, text: "widget" });
+        // 修改点：携带 lang 标记（html/svg 区分渲染路径）
+        for (const w of widgets) {
+          newParts.push({ type: "widget", html: w.html, text: "widget", widgetLang: w.lang });
         }
       } else {
         newParts.push(part);

@@ -4,6 +4,7 @@ import {
   ActionBarPrimitive, ErrorPrimitive, BranchPickerPrimitive,
   SelectionToolbarPrimitive,
   useAui, useAuiState,
+  useThreadRuntime,
 } from "@assistant-ui/react";
 import { MiraRuntimeProvider } from "./MiraRuntimeProvider";
 import { ModelSelector, loadModelChoice, loadModeChoice } from "./ModelSelector";
@@ -136,6 +137,13 @@ function ChatInner({ ctx, selectedModel, onModelChange, agentMode, onModeChange,
 }) {
   const aui = useAui();
   const composerText = useAuiState((s) => s.composer.text);
+  // 修改点：thread runtime 句柄 — widget「添加到对话」用 composer.setText 追加代码块
+  const threadRuntime = useThreadRuntime();
+  const handleAddToChat = useCallback((code: string, lang: "html" | "svg") => {
+    const composer = threadRuntime.composer;
+    const prev = composer.getState().text || "";
+    composer.setText(`${prev}${prev ? "\n\n" : ""}\`\`\`${lang}\n${code}\n\`\`\`\n`);
+  }, [threadRuntime]);
   const composerIsEmpty = useAuiState((s) => s.composer.isEmpty);
   const threadEmpty = useAuiState((s) => s.thread.isEmpty);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -431,7 +439,7 @@ function ChatInner({ ctx, selectedModel, onModelChange, agentMode, onModeChange,
                             {orig && orig.parts.some((p: any) => p.type === "widget") && (
                               <div className="mt-2 space-y-3">
                                 {orig.parts.filter((p: any) => p.type === "widget").map((p: any, i: number) => (
-                                  <WidgetRenderer key={i} html={p.html || ""} />
+                                  <WidgetRenderer key={i} html={p.html || ""} lang={p.widgetLang} onAddToChat={handleAddToChat} />
                                 ))}
                               </div>
                             )}

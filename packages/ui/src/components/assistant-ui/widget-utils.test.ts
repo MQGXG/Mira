@@ -1,12 +1,13 @@
 import { describe, expect, test } from 'vitest'
-import { extractWidgetBlocks, prepareWidgetHtml, widgetFileName, wrapStandaloneHtml, copyTextToClipboard } from './widget-utils'
+import { extractWidgetBlocks, prepareWidgetHtml, widgetFileName, svgFileName, wrapStandaloneHtml, copyTextToClipboard, normalizeSvgSize } from './widget-utils'
 
 describe('extractWidgetBlocks', () => {
   test('提取单个 widget 代码块并清理文本', () => {
     const text = '下面是一个图表\n\n```html\n<canvas id="c"></canvas>\n```\n\n以上'
     const { cleanText, widgets } = extractWidgetBlocks(text)
     expect(widgets.length).toBe(1)
-    expect(widgets[0]).toContain('<canvas')
+    expect(widgets[0].html).toContain('<canvas')
+    expect(widgets[0].lang).toBe('html')
     expect(cleanText).not.toContain('```html')
     expect(cleanText).toContain('下面是一个图表')
   })
@@ -15,7 +16,32 @@ describe('extractWidgetBlocks', () => {
     const text = '```html\n<svg></svg>\n```\n\n中间文本\n\n```html\n<div>第二</div>\n```'
     const { cleanText, widgets } = extractWidgetBlocks(text)
     expect(widgets.length).toBe(2)
+    expect(widgets.every((w) => w.lang === 'html')).toBe(true)
     expect(cleanText).toContain('中间文本')
+  })
+
+  test('提取 ```svg 代码块并标记 lang=svg', () => {
+    const text = '流程图如下\n\n```svg\n<svg viewBox="0 0 10 10"><rect width="10" height="10"/></svg>\n```'
+    const { cleanText, widgets } = extractWidgetBlocks(text)
+    expect(widgets.length).toBe(1)
+    expect(widgets[0].lang).toBe('svg')
+    expect(widgets[0].html).toContain('</svg>')
+    expect(cleanText).toContain('流程图如下')
+  })
+
+  test('未闭合的 ```svg 块不提取（流式安全）', () => {
+    const text = '```html\n<div>ok</div>\n```\n\n流式中\n\n```svg\n<svg><rect/>'
+    const { cleanText, widgets } = extractWidgetBlocks(text)
+    expect(widgets.length).toBe(1)
+    expect(widgets[0].lang).toBe('html')
+    expect(cleanText).toContain('流式中')
+    expect(cleanText).toContain('```svg')
+  })
+
+  test('```widget 代码块按 html 处理', () => {
+    const text = '```widget\n<div>x</div>\n```'
+    const { widgets } = extractWidgetBlocks(text)
+    expect(widgets[0].lang).toBe('html')
   })
 
   test('无 widget 时原样返回', () => {
@@ -94,5 +120,23 @@ describe('copyTextToClipboard', () => {
   test('无剪贴板/DOM 环境优雅降级（返回 false）', async () => {
     const ok = await copyTextToClipboard('hi')
     expect(ok).toBe(false)
+  })
+})
+
+describe('svg 辅助函数（修改点：svg 卡片 + 图片导出）', () => {
+  test('svgFileName 提取 <title> 生成 .svg 文件名', () => {
+    expect(svgFileName('<svg><title>架构图</title></svg>')).toBe('架构图.svg')
+    expect(svgFileName('<svg><rect/></svg>')).toBe('widget.svg')
+  })
+
+  test('normalizeSvgSize 补齐仅 viewBox 的尺寸', () => {
+    const out = normalizeSvgSize('<svg viewBox="0 0 320 200"></svg>')
+    expect(out).toContain('width="320"')
+    expect(out).toContain('height="200"')
+  })
+
+  test('normalizeSvgSize 已有 width/height 时原样返回', () => {
+    const src = '<svg width="10" height="10"></svg>'
+    expect(normalizeSvgSize(src)).toBe(src)
   })
 })

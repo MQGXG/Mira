@@ -84,6 +84,15 @@ export function registerIPCHandlers(): void {
     return true;
   });
 
+  // 修改点：新增 base64 二进制写入（供渲染层保存导出图片 PNG）
+  ipcMain.handle("ts:writeFileBase64", async (_, filePath: string, base64: string) => {
+    if (!filePath || typeof base64 !== "string") return false;
+    const buf = Buffer.from(base64, "base64");
+    if (buf.length === 0) return false;
+    await fs.writeFile(filePath, buf);
+    return true;
+  });
+
   // 读取会话附件（历史恢复：相对路径 → base64 data URL）
   ipcMain.handle("ts:readAttachment", async (_, relPath: string) => {
     if (!relPath || typeof relPath !== "string") return "";

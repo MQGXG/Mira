@@ -69,6 +69,8 @@ const electronAPI = {
     searchMessages: (query: string) => ipcRenderer.invoke("ts:searchMessages", query),
     restoreSnapshot: (snapshotId: string, workspace: string) => ipcRenderer.invoke("ts:restoreSnapshot", snapshotId, workspace),
     writeFile: (filePath: string, content: string) => ipcRenderer.invoke("ts:writeFile", filePath, content),
+    // 修改点：base64 二进制写入（widget 导出图片用）
+    writeFileBase64: (filePath: string, base64: string) => ipcRenderer.invoke("ts:writeFileBase64", filePath, base64),
     readAttachment: (relPath: string) => ipcRenderer.invoke("ts:readAttachment", relPath),
     getDefaultWorkspace: () => ipcRenderer.invoke("ts:getDefaultWorkspace"),
   },

@@ -78,6 +78,8 @@ export interface ElectronAPI {
     searchMessages: (query: string) => Promise<Array<{ session_id: string; session_title: string; message: { role: string; content: string; timestamp: string }; context: string }>>;
     restoreSnapshot: (snapshotId: string, workspace: string) => Promise<string[]>;
     writeFile: (filePath: string, content: string) => Promise<boolean>;
+    /** 写入 base64 二进制文件（widget 导出图片用） */
+    writeFileBase64: (filePath: string, base64: string) => Promise<boolean>;
     readAttachment: (relPath: string) => Promise<string>;
     getDefaultWorkspace: () => Promise<string>;
   };

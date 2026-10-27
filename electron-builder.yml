@@ -10,9 +10,15 @@ files:
   - dist-electron/**/*
   - dist/**/*
 
+# tree-sitter 等原生依赖自带 prebuilds（win32-x64 .node 已随包分发），
+# 跳过 electron-builder 的 rebuild 步骤：corepack pnpm 环境下其会误把 pnpm.mjs 当可执行文件导致打包失败
+npmRebuild: false
+
 # tree-sitter 等 WASM 文件 unpack 到 app.asar.unpacked，供 sidecar（纯 Node 子进程）读取
+# *.node 原生二进制同样不能从 asar 内加载（tree-sitter prebuilds）
 asarUnpack:
   - "**/*.wasm"
+  - "**/*.node"
 
 # 本地 AI 模型（Transformers.js ONNX）随应用分发，缺失时运行时自动在线下载
 extraResources:
@@ -36,10 +42,48 @@ extraResources:
 
 win:
   icon: resources/icon.ico
+  # 仅 Windows 包的裁剪规则（平台级 files 与顶层 files 追加合并，不影响 mac/linux 打包）
+  # 保留 playwright：web_browse 网页浏览功能依赖它
+  # 注意：平台级 files 会覆盖顶层 files，必须重复声明包含规则，
+  # 否则只剩排除项时 electron-builder 会退化为打包整个项目根目录（把 release/ 也塞进 asar）
+  files:
+    - dist-electron/**/*
+    - dist/**/*
+    # 跨平台二进制：Windows 运行时只加载 win32，剔除 darwin/linux
+    - "!node_modules/onnxruntime-node/bin/napi-v3/darwin/**"
+    - "!node_modules/onnxruntime-node/bin/napi-v3/linux/**"
+    # transformers 的 Node 入口只加载 onnxruntime-node，web 运行时已被 Vite 打进 dist
+    - "!node_modules/onnxruntime-web/**"
+    - "!node_modules/tree-sitter-bash/prebuilds/darwin-*/**"
+    - "!node_modules/tree-sitter-bash/prebuilds/linux-*/**"
+    - "!node_modules/tree-sitter-powershell/prebuilds/darwin-*/**"
+    - "!node_modules/tree-sitter-powershell/prebuilds/linux-*/**"
+    # 纯渲染层依赖：已被 Vite 打包进 dist，node_modules 副本不再使用
+    - "!node_modules/mermaid/**"
+    - "!node_modules/@mermaid-js/**"
+    - "!node_modules/pixi.js/**"
+    - "!node_modules/untitled-pixi-live2d-engine/**"
+    - "!node_modules/gifuct-js/**"
+    - "!node_modules/three/**"
+    - "!node_modules/three-render-objects/**"
+    - "!node_modules/3d-force-graph/**"
+    - "!node_modules/react-force-graph-3d/**"
+    - "!node_modules/lucide-react/**"
+    - "!node_modules/cytoscape/**"
+    - "!node_modules/cytoscape-fcose/**"
+    - "!node_modules/@shikijs/**"
+    - "!node_modules/katex/**"
+    - "!node_modules/@assistant-ui/**"
+    - "!node_modules/react-dom/**"
+    # 已 bundle 进 dist-electron 的依赖，无需 asar 副本
+    - "!node_modules/effect/**"
+    - "!node_modules/zod/**"
+    - "!node_modules/@modelcontextprotocol/sdk/**"
+    - "!node_modules/docx/**"
   target:
     - target: nsis
       arch: [x64]
-  artifactName: "${productName}-Setup-${version}.${ext}"
+  artifactName: "${productName}-Setup.${ext}"
 
 nsis:
   oneClick: false

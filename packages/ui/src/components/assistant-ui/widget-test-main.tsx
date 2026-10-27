@@ -119,12 +119,18 @@ const messageWithWidget = "这里是一些说明文字。\n\n" +
   "然后继续正文。";
 
 function App() {
-  const cases = [
+  const cases: Array<{ label: string; html: string; lang?: "html" | "svg" }> = [
     { label: "Diagram · SVG 流程图", html: diagramWidget },
     { label: "Chart · Chart.js 柱状图", html: chartWidget },
     { label: "Interactive · 交互组件", html: interactiveWidget },
     { label: "Mockup · 界面线框图", html: mockupWidget },
     { label: "Art · SVG 艺术插画", html: artWidget },
+    // 修改点：新增纯 ```svg 代码块用例（data URL img 渲染路径）
+    {
+      label: "纯 SVG 块 · ```svg 提取（img 渲染）",
+      lang: "svg",
+      html: `<svg viewBox="0 0 680 120" width="100%" role="img"><rect x="30" y="30" width="180" height="56" rx="12" fill="#E1F5EE" stroke="#0F6E56"/><text x="120" y="58" text-anchor="middle" font-size="15" fill="#085041">纯 SVG 卡片</text><line x1="210" y1="58" x2="290" y2="58" stroke="#888" stroke-width="1.5"/><rect x="295" y="30" width="180" height="56" rx="12" fill="#E6F1FB" stroke="#85B7EB"/><text x="385" y="58" text-anchor="middle" font-size="15" fill="#1B5E9C">img 视图</text><line x1="475" y1="58" x2="550" y2="58" stroke="#888" stroke-width="1.5"/><rect x="555" y="30" width="95" height="56" rx="12" fill="#FAC775" stroke="#EF9F27"/><text x="602" y="58" text-anchor="middle" font-size="15" fill="#7A4D00">可导出</text></svg>`,
+    },
   ];
 
   // 提取逻辑测试
@@ -154,7 +160,7 @@ cleanText 含 '` + "```" + `html': ${extracted.cleanText.includes("```html")}`}
           {cases.map((c, i) => (
             <div className="card" key={i}>
               <div className="card-label">{c.label}</div>
-              <WidgetRenderer html={c.html} />
+              <WidgetRenderer html={c.html} lang={c.lang} />
             </div>
           ))}
         </div>

@@ -16,6 +16,8 @@ export interface MiraPart {
   time?: { start: number; end?: number };
   /** widget：iframe 渲染的富 HTML 内容 */
   html?: string;
+  /** widget 语言标记（html/svg，历史消息缺省按 html 处理） */
+  widgetLang?: "html" | "svg";
   /** tool-call */
   toolCallId?: string;
   toolName?: string;

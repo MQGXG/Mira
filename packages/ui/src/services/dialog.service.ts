@@ -34,4 +34,14 @@ export const DialogService = {
     if (!filePath) return false
     return window.electronAPI.ts.writeFile(filePath, content)
   },
+
+  /**
+   * 修改点：保存 base64 二进制文件（widget 导出图片 PNG 用）
+   * @returns 写入成功返回 true；用户取消或写入失败返回 false
+   */
+  async saveBinaryFileBase64(defaultName: string, base64: string): Promise<boolean> {
+    const filePath = await window.electronAPI.saveFile(defaultName)
+    if (!filePath) return false
+    return window.electronAPI.ts.writeFileBase64(filePath, base64)
+  },
 }
